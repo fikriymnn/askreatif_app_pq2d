@@ -419,7 +419,7 @@ class _SolverPageState extends State<SolverPage> {
                       LinearProgressIndicator(value: progressValue),
                       SizedBox(height: 12),
                       Text(
-                        "Menghitung OV seragam... \${(progressValue * 100).toStringAsFixed(1)}%",
+                        "Menghitung OV seragam... ${(progressValue * 100).toStringAsFixed(1)}%",
                       ),
                     ],
                   )
