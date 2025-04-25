@@ -45,12 +45,12 @@ final Map<String, Map<String, double>> anm = {
 
 final List<Compound> compounds = [
   Compound(
-    name: "Limonene",
+    name: "Romandolide",
     MW: 136.23,
     Psat: 2100,
     Thr: 0.0093,
-    R: 2.2,
-    Q: 2.5,
+    R: 56.28,
+    Q: 9.328,
     groups: {"CH3": 2, "C=C": 1},
   ),
   Compound(
@@ -58,8 +58,8 @@ final List<Compound> compounds = [
     MW: 154.25,
     Psat: 26.7,
     Thr: 2.48e-5,
-    R: 2.5,
-    Q: 2.8,
+    R: 16.50,
+    Q: 6.716,
     groups: {"CH3": 2, "CH2": 4, "OH": 1},
   ),
   Compound(
@@ -67,35 +67,35 @@ final List<Compound> compounds = [
     MW: 152.15,
     Psat: 0.23,
     Thr: 0.0002,
-    R: 2.0,
-    Q: 2.4,
+    R: 15.67,
+    Q: 4.156,
     groups: {"CH3": 1, "C=O": 1, "OH": 1},
   ),
   Compound(
-    name: "Galaxolide",
+    name: "Cashmeran",
     MW: 258.4,
     Psat: 0.12,
     Thr: 0.0003,
-    R: 3.2,
-    Q: 3.6,
+    R: 21.86,
+    Q: 7.213,
     groups: {"CH3": 3, "C6H5": 1},
   ),
   Compound(
-    name: "Eugenol",
+    name: "Javanol",
     MW: 164.2,
     Psat: 20.0,
     Thr: 0.00015,
-    R: 2.7,
-    Q: 3.0,
+    R: 18.98,
+    Q: 7.976,
     groups: {"CH3": 1, "OH": 1, "C6H5": 1},
   ),
   Compound(
-    name: "Cinnamaldehyde",
+    name: "Benzyl Acetate",
     MW: 132.16,
     Psat: 14.5,
     Thr: 0.0004,
-    R: 2.3,
-    Q: 2.6,
+    R: 32.08,
+    Q: 4.388,
     groups: {"CH3": 1, "C=O": 1},
   ),
   Compound(
@@ -112,8 +112,8 @@ final List<Compound> compounds = [
     MW: 46.07,
     Psat: 7270,
     Thr: 5.53e-2,
-    R: 1.2,
-    Q: 1.6,
+    R: 2.5755,
+    Q: 1.2,
     groups: {"CH3": 1, "OH": 1},
   ),
   Compound(
@@ -121,8 +121,8 @@ final List<Compound> compounds = [
     MW: 18.015,
     Psat: 3170,
     Thr: 1.0e-2,
-    R: 1.4,
-    Q: 1.9,
+    R: 0.92,
+    Q: 1.4,
     groups: {"H2O": 1},
   ),
 ];
@@ -176,7 +176,7 @@ class _SolverPageState extends State<SolverPage> {
 
     await Future.delayed(Duration(milliseconds: 50));
 
-    int maxTries = 300;
+    int maxTries = 100;
     int attempt = 0;
 
     List<Compound> bestSelected = [];
@@ -356,7 +356,7 @@ class _SolverPageState extends State<SolverPage> {
           child: Column(
             children: [
               Text("Pilih 7 Senyawa:"),
-              for (int i = 0; i < 7; i++)
+              for (int i = 0; i < 6; i++)
                 DropdownButton<String>(
                   value: selectedCompounds[i],
                   onChanged: (newValue) {
