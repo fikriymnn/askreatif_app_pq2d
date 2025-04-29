@@ -136,7 +136,7 @@ class _SolverPageState extends State<SolverPage> {
   bool isLoading = false;
   double progressValue = 0.0; // used for LinearProgressIndicator
   List<String> selectedCompounds = List.generate(
-    7,
+    6,
     (index) => compounds[index].name,
   );
   String selectedSolvent = "Ethanol";
@@ -154,7 +154,7 @@ class _SolverPageState extends State<SolverPage> {
   void generateRandomFractions() {
     List<double> tempFractions;
     do {
-      tempFractions = List.generate(7, (_) => getRandomFraction());
+      tempFractions = List.generate(6, (_) => getRandomFraction());
       double sum = tempFractions.reduce((a, b) => a + b) + solventFraction;
       if ((sum - 1).abs() < 0.0001) {
         fractions = tempFractions;
@@ -355,7 +355,7 @@ class _SolverPageState extends State<SolverPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              Text("Pilih 7 Senyawa:"),
+              Text("Pilih 6 Senyawa:"),
               for (int i = 0; i < 6; i++)
                 DropdownButton<String>(
                   value: selectedCompounds[i],
