@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import 'amn_selected_groups.dart';
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -40,71 +42,71 @@ class Compound {
 }
 
 // Expanded UNIFAC interaction parameters (amn) - using values from MATLAB
-final Map<String, Map<String, double>> amn = {
-  "CH3": {
-    "ACH": 505.7,
-    "ACNH2": 524.1,
-    "CH2": -35.36,
-    "CH3": 0.0,
-    "CH3CO": 986.5,
-    "H2O": 300.0,
-    "OH": 156.4,
-  },
-  "CH2": {
-    "ACH": 114.8,
-    "ACNH2": 524.1,
-    "CH2": 0.0,
-    "CH3": -11.12,
-    "CH3CO": 524.1,
-    "H2O": 275.8,
-    "OH": 16.51,
-  },
-  "OH": {
-    "CH3": 476.4,
-    "CH2": 1318.0,
-    "OH": 0.0,
-    "C=O": -229.1,
-    "C6H5": -229.1,
-    "NH2": 0.0,
-    "H2O": 0.0,
-  },
-  "C=O": {
-    "CH3": 986.5,
-    "CH2": 986.5,
-    "OH": -229.1,
-    "C=O": 0.0,
-    "C6H5": 1200.0,
-    "NH2": 1200.0,
-    "H2O": 0.0,
-  },
-  "C6H5": {
-    "CH3": 1318.0,
-    "CH2": 1318.0,
-    "OH": -229.1,
-    "C=O": 1200.0,
-    "C6H5": 0.0,
-    "NH2": 0.0,
-    "H2O": 0.0,
-  },
-  "NH2": {
-    "CH3": 1500.0,
-    "CH2": 1500.0,
-    "OH": 0.0,
-    "C=O": 1200.0,
-    "C6H5": 0.0,
-    "NH2": 0.0,
-    "H2O": 0.0,
-  },
-  "H2O": {
-    "CH3": 3000.0,
-    "CH2": 3000.0,
-    "OH": 0.0,
-    "C=O": 0.0,
-    "C6H5": 0.0,
-    "NH2": 0.0,
-    "H2O": 0.0,
-  },
-};
+// final Map<String, Map<String, double>> amn = {
+//   "CH3": {
+//     "ACH": 505.7,
+//     "ACNH2": 524.1,
+//     "CH2": -35.36,
+//     "CH3": 0.0,
+//     "CH3CO": 986.5,
+//     "H2O": 300.0,
+//     "OH": 156.4,
+//   },
+//   "CH2": {
+//     "ACH": 114.8,
+//     "ACNH2": 524.1,
+//     "CH2": 0.0,
+//     "CH3": -11.12,
+//     "CH3CO": 524.1,
+//     "H2O": 275.8,
+//     "OH": 16.51,
+//   },
+//   "OH": {
+//     "CH3": 476.4,
+//     "CH2": 1318.0,
+//     "OH": 0.0,
+//     "C=O": -229.1,
+//     "C6H5": -229.1,
+//     "NH2": 0.0,
+//     "H2O": 0.0,
+//   },
+//   "C=O": {
+//     "CH3": 986.5,
+//     "CH2": 986.5,
+//     "OH": -229.1,
+//     "C=O": 0.0,
+//     "C6H5": 1200.0,
+//     "NH2": 1200.0,
+//     "H2O": 0.0,
+//   },
+//   "C6H5": {
+//     "CH3": 1318.0,
+//     "CH2": 1318.0,
+//     "OH": -229.1,
+//     "C=O": 1200.0,
+//     "C6H5": 0.0,
+//     "NH2": 0.0,
+//     "H2O": 0.0,
+//   },
+//   "NH2": {
+//     "CH3": 1500.0,
+//     "CH2": 1500.0,
+//     "OH": 0.0,
+//     "C=O": 1200.0,
+//     "C6H5": 0.0,
+//     "NH2": 0.0,
+//     "H2O": 0.0,
+//   },
+//   "H2O": {
+//     "CH3": 3000.0,
+//     "CH2": 3000.0,
+//     "OH": 0.0,
+//     "C=O": 0.0,
+//     "C6H5": 0.0,
+//     "NH2": 0.0,
+//     "H2O": 0.0,
+//   },
+// };
 
 // UNIFAC group parameters - similar to MATLAB R and Q values
 final Map<String, List<double>> groupParams = {
