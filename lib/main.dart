@@ -26,8 +26,6 @@ class Compound {
   final double MW;
   final double Psat;
   final double Thr;
-  final double R;
-  final double Q;
   final Map<String, int> groups;
 
   Compound({
@@ -35,8 +33,6 @@ class Compound {
     required this.MW,
     required this.Psat,
     required this.Thr,
-    required this.R,
-    required this.Q,
     required this.groups,
   });
 }
@@ -126,8 +122,6 @@ final List<Compound> compounds = [
     MW: 154.25,
     Psat: 8.60, // Using values closer to MATLAB
     Thr: 0.018,
-    R: 7.5037,
-    Q: 6.716,
     groups: {"CH3": 3, "CH2": 3, "CH=C": 2, "OH": 1},
   ),
   Compound(
@@ -135,8 +129,6 @@ final List<Compound> compounds = [
     MW: 156.26,
     Psat: 7.999343,
     Thr: 0.0021,
-    R: 11.0885,
-    Q: 9.328,
     groups: {
       "CH3": 3,
       "CH2": 4,
@@ -152,8 +144,6 @@ final List<Compound> compounds = [
     MW: 192.30,
     Psat: 2.5331254,
     Thr: 0.0004,
-    R: 8.8464,
-    Q: 7.213,
     groups: {"CH3": 5, "CH2": 2, "CH": 1, "C": 2, "C=C": 1, "CH2CO": 1},
   ),
   Compound(
@@ -161,8 +151,6 @@ final List<Compound> compounds = [
     MW: 222.37,
     Psat: 1.333224,
     Thr: 0.000027,
-    R: 9.9756,
-    Q: 7.976,
     groups: {"CH3": 2, "CH2": 5, "CH": 3, "C": 3, "OH": 1},
   ),
   Compound(
@@ -170,8 +158,6 @@ final List<Compound> compounds = [
     MW: 284.44,
     Psat: 1.33,
     Thr: 0.0000017,
-    R: 5.5992,
-    Q: 4.388,
     groups: {"ACH": 5, "ACCH2": 1, "CH3COO": 1},
   ),
   Compound(
@@ -179,8 +165,6 @@ final List<Compound> compounds = [
     MW: 284.44,
     Psat: 1.33,
     Thr: 0.0000017,
-    R: 5.3625,
-    Q: 4.156,
     groups: {"ACH": 3, "AC": 2, "ACOH": 1, "CHO": 1, "CH3O": 1},
   ),
   Compound(
@@ -188,8 +172,6 @@ final List<Compound> compounds = [
     MW: 18.015,
     Psat: 3170,
     Thr: 100.0,
-    R: 0.92,
-    Q: 1.4,
     groups: {"H2O": 1},
   ),
   Compound(
@@ -197,8 +179,6 @@ final List<Compound> compounds = [
     MW: 46.07,
     Psat: 7270,
     Thr: 50.0,
-    R: 2.5755,
-    Q: 2.588,
     groups: {"CH3": 1, "OH": 1},
   ),
   Compound(
@@ -206,8 +186,6 @@ final List<Compound> compounds = [
     MW: 76.09,
     Psat: 0.013,
     Thr: 50.0,
-    R: 6.2887,
-    Q: 5.872,
     groups: {"CH3": 2, "CH2": 1, "CH": 2, "OH": 2, "CH2O": 1},
   ),
 ];
