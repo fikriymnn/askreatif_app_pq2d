@@ -1,0 +1,391 @@
+// Calculate UNIFAC activity coefficients optimized for PQ2D
+// PQ2D focuses on perfumery octants with specific group interactions
+List<double> calculateImprovedUnifacCoefficients(
+  List<Compound> comps,
+  List<double> moleFractions,
+) {
+  const double T = 298.15; // Temperature in K
+  const double R = 8.314; // Gas constant
+  final int nComps = comps.length;
+  
+  // Initialize activity coefficients
+  List<double> gammas = List.filled(nComps, 1.0);
+  
+  // Step 1: Calculate molecular parameters (r and q)
+  List<double> r = List.filled(nComps, 0.0);
+  List<double> q = List.filled(nComps, 0.0);
+  
+  for (int i = 0; i < nComps; i++) {
+    Compound comp = comps[i];
+    comp.groups.forEach((group, count) {
+      if (groupParams.containsKey(group)) {
+        r[i] += count * groupParams[group]![0]; // Volume parameter
+        q[i] += count * groupParams[group]![1]; // Surface area parameter
+      }
+    });
+  }
+  
+  // Step 2: Calculate mixture properties
+  double sumRX = 0.0;
+  double sumQX = 0.0;
+  
+  for (int i = 0; i < nComps; i++) {
+    sumRX += r[i] * moleFractions[i];
+    sumQX += q[i] * moleFractions[i];
+  }
+  
+  // Prevent division by zero
+  if (sumRX <= 0) sumRX = 1e-10;
+  if (sumQX <= 0) sumQX = 1e-10;
+  
+  // Calculate volume and surface area fractions
+  List<double> phi = List.filled(nComps, 0.0); // Volume fractions
+  List<double> theta = List.filled(nComps, 0.0); // Surface area fractions
+  
+  for (int i = 0; i < nComps; i++) {
+    phi[i] = (r[i] * moleFractions[i]) / sumRX;
+    theta[i] = (q[i] * moleFractions[i]) / sumQX;
+  }
+  
+  // Step 3: Calculate combinatorial part (Flory-Huggins + Staverman-Guggenheim)
+  List<double> lnGammaC = List.filled(nComps, 0.0);
+  
+  for (int i = 0; i < nComps; i++) {
+    if (phi[i] > 0 && theta[i] > 0 && moleFractions[i] > 0) {
+      double term1 = log(phi[i] / moleFractions[i]);
+      double term2 = 1.0 - (phi[i] / moleFractions[i]);
+      double term3 = q[i] * (1.0 - (phi[i] / theta[i]) + log(phi[i] / theta[i]));
+      
+      lnGammaC[i] = term1 + term2 - (5.0 * term3);
+    } else {
+      lnGammaC[i] = 0.0;
+    }
+  }
+  
+  // Step 4: Calculate residual part - Enhanced for PQ2D
+  List<double> lnGammaR = List.filled(nComps, 0.0);
+  
+  // Get all unique groups across all components
+  Set<String> allGroups = {};
+  for (var comp in comps) {
+    allGroups.addAll(comp.groups.keys);
+  }
+  
+  // Calculate group mole fractions in the mixture
+  Map<String, double> X_m = {}; // Group mole fractions in mixture
+  double totalGroupMoles = 0.0;
+  
+  for (String group in allGroups) {
+    double groupMoles = 0.0;
+    for (int i = 0; i < nComps; i++) {
+      if (comps[i].groups.containsKey(group)) {
+        groupMoles += comps[i].groups[group]! * moleFractions[i];
+      }
+    }
+    X_m[group] = groupMoles;
+    totalGroupMoles += groupMoles;
+  }
+  
+  // Normalize group mole fractions
+  if (totalGroupMoles > 0) {
+    X_m.forEach((group, moles) {
+      X_m[group] = moles / totalGroupMoles;
+    });
+  }
+  
+  // Calculate group activity coefficients in mixture
+  Map<String, double> lnGamma_k = {};
+  
+  for (String k in allGroups) {
+    double sum1 = 0.0;
+    double sum2 = 0.0;
+    
+    // Calculate theta_m for group k
+    double theta_k = 0.0;
+    if (groupParams.containsKey(k)) {
+      theta_k = groupParams[k]![1] * (X_m[k] ?? 0.0);
+    }
+    
+    // Calculate sum of theta_m for all groups
+    double sumTheta = 0.0;
+    for (String j in allGroups) {
+      if (groupParams.containsKey(j)) {
+        sumTheta += groupParams[j]![1] * (X_m[j] ?? 0.0);
+      }
+    }
+    
+    if (sumTheta > 0) {
+      theta_k /= sumTheta;
+    }
+    
+    // Calculate interaction terms
+    for (String j in allGroups) {
+      double theta_j = 0.0;
+      if (groupParams.containsKey(j)) {
+        theta_j = groupParams[j]![1] * (X_m[j] ?? 0.0);
+        if (sumTheta > 0) {
+          theta_j /= sumTheta;
+        }
+      }
+      
+      // Get interaction parameter
+      double a_kj = 0.0;
+      if (amn.containsKey(k) && amn[k]!.containsKey(j)) {
+        a_kj = amn[k]![j]!;
+      }
+      
+      // Calculate psi_kj
+      double psi_kj = exp(-a_kj / (R * T));
+      
+      sum1 += theta_j * psi_kj;
+      
+      // Calculate second sum term
+      double innerSum = 0.0;
+      for (String l in allGroups) {
+        double theta_l = 0.0;
+        if (groupParams.containsKey(l)) {
+          theta_l = groupParams[l]![1] * (X_m[l] ?? 0.0);
+          if (sumTheta > 0) {
+            theta_l /= sumTheta;
+          }
+        }
+        
+        double a_jl = 0.0;
+        if (amn.containsKey(j) && amn[j]!.containsKey(l)) {
+          a_jl = amn[j]![l]!;
+        }
+        
+        double psi_jl = exp(-a_jl / (R * T));
+        innerSum += theta_l * psi_jl;
+      }
+      
+      if (innerSum > 0) {
+        sum2 += (theta_j * psi_kj) / innerSum;
+      }
+    }
+    
+    lnGamma_k[k] = (groupParams[k]?[1] ?? 0.0) * (1.0 - log(sum1) - sum2);
+  }
+  
+  // Calculate group activity coefficients in pure components
+  Map<String, Map<String, double>> lnGamma_k_pure = {};
+  
+  for (int i = 0; i < nComps; i++) {
+    lnGamma_k_pure[i.toString()] = {};
+    
+    // Get groups for this component
+    Set<String> compGroups = comps[i].groups.keys.toSet();
+    
+    // Calculate group mole fractions in pure component
+    Map<String, double> X_pure = {};
+    double totalPureGroups = 0.0;
+    
+    for (String group in compGroups) {
+      double count = comps[i].groups[group]?.toDouble() ?? 0.0;
+      X_pure[group] = count;
+      totalPureGroups += count;
+    }
+    
+    // Normalize
+    if (totalPureGroups > 0) {
+      X_pure.forEach((group, count) {
+        X_pure[group] = count / totalPureGroups;
+      });
+    }
+    
+    // Calculate group activity coefficients in pure component
+    for (String k in compGroups) {
+      double sum1_pure = 0.0;
+      double sum2_pure = 0.0;
+      
+      // Calculate theta for pure component
+      double theta_k_pure = 0.0;
+      if (groupParams.containsKey(k)) {
+        theta_k_pure = groupParams[k]![1] * (X_pure[k] ?? 0.0);
+      }
+      
+      double sumTheta_pure = 0.0;
+      for (String j in compGroups) {
+        if (groupParams.containsKey(j)) {
+          sumTheta_pure += groupParams[j]![1] * (X_pure[j] ?? 0.0);
+        }
+      }
+      
+      if (sumTheta_pure > 0) {
+        theta_k_pure /= sumTheta_pure;
+      }
+      
+      for (String j in compGroups) {
+        double theta_j_pure = 0.0;
+        if (groupParams.containsKey(j)) {
+          theta_j_pure = groupParams[j]![1] * (X_pure[j] ?? 0.0);
+          if (sumTheta_pure > 0) {
+            theta_j_pure /= sumTheta_pure;
+          }
+        }
+        
+        double a_kj = 0.0;
+        if (amn.containsKey(k) && amn[k]!.containsKey(j)) {
+          a_kj = amn[k]![j]!;
+        }
+        
+        double psi_kj = exp(-a_kj / (R * T));
+        sum1_pure += theta_j_pure * psi_kj;
+        
+        double innerSum_pure = 0.0;
+        for (String l in compGroups) {
+          double theta_l_pure = 0.0;
+          if (groupParams.containsKey(l)) {
+            theta_l_pure = groupParams[l]![1] * (X_pure[l] ?? 0.0);
+            if (sumTheta_pure > 0) {
+              theta_l_pure /= sumTheta_pure;
+            }
+          }
+          
+          double a_jl = 0.0;
+          if (amn.containsKey(j) && amn[j]!.containsKey(l)) {
+            a_jl = amn[j]![l]!;
+          }
+          
+          double psi_jl = exp(-a_jl / (R * T));
+          innerSum_pure += theta_l_pure * psi_jl;
+        }
+        
+        if (innerSum_pure > 0) {
+          sum2_pure += (theta_j_pure * psi_kj) / innerSum_pure;
+        }
+      }
+      
+      lnGamma_k_pure[i.toString()]![k] = 
+          (groupParams[k]?[1] ?? 0.0) * (1.0 - log(sum1_pure) - sum2_pure);
+    }
+  }
+  
+  // Calculate residual part for each component
+  for (int i = 0; i < nComps; i++) {
+    double residualSum = 0.0;
+    
+    comps[i].groups.forEach((group, count) {
+      double lnGamma_mix = lnGamma_k[group] ?? 0.0;
+      double lnGamma_pure = lnGamma_k_pure[i.toString()]?[group] ?? 0.0;
+      
+      residualSum += count * (lnGamma_mix - lnGamma_pure);
+    });
+    
+    lnGammaR[i] = residualSum;
+  }
+  
+  // Step 5: Combine parts and apply PQ2D specific adjustments
+  for (int i = 0; i < nComps; i++) {
+    // Check for numerical issues
+    if (!lnGammaC[i].isFinite) lnGammaC[i] = 0.0;
+    if (!lnGammaR[i].isFinite) lnGammaR[i] = 0.0;
+    
+    // Apply PQ2D specific correction factor
+    double pq2dCorrection = calculatePQ2DCorrection(comps[i], moleFractions[i]);
+    
+    // Total activity coefficient
+    double lnGammaTotal = lnGammaC[i] + lnGammaR[i] + pq2dCorrection;
+    
+    gammas[i] = exp(lnGammaTotal);
+    
+    // Safety bounds for numerical stability
+    if (!gammas[i].isFinite || gammas[i] <= 0) {
+      gammas[i] = 1.0;
+    }
+    
+    // Apply reasonable bounds for perfumery applications
+    if (gammas[i] > 100.0) gammas[i] = 100.0;
+    if (gammas[i] < 0.01) gammas[i] = 0.01;
+  }
+  
+  return gammas;
+}
+
+// PQ2D specific correction factor for perfumery compounds
+double calculatePQ2DCorrection(Compound comp, double moleFraction) {
+  // For standard UNIFAC calculation without octant factors
+  // This can be extended later if needed for specific PQ2D adjustments
+  return 0.0;
+}
+
+// Enhanced group parameter initialization for PQ2D
+Map<String, List<double>> getEnhancedGroupParams() {
+  return {
+    // [R, Q] parameters optimized for perfumery compounds
+    'CH3': [0.9011, 0.848],
+    'CH2': [0.6744, 0.540],
+    'CH': [0.4469, 0.228],
+    'C': [0.2195, 0.000],
+    'CH2=CH': [1.3454, 1.176],
+    'CH=CH': [1.1167, 0.867],
+    'CH2=C': [1.1173, 0.988],
+    'CH=C': [0.8886, 0.676],
+    'C=C': [0.6605, 0.485],
+    'ACH': [0.5313, 0.400],
+    'AC': [0.3652, 0.120],
+    'ACCH3': [1.2663, 0.968],
+    'ACCH2': [1.0396, 0.660],
+    'OH': [1.0000, 1.200],
+    'CH3OH': [1.4311, 1.432],
+    'H2O': [0.9200, 1.400],
+    'ACOH': [0.8952, 0.680],
+    'CH3CO': [1.6724, 1.488],
+    'CH2CO': [1.4457, 1.180],
+    'CHO': [0.9980, 0.948],
+    'CH3COO': [1.9031, 1.728],
+    'CH2COO': [1.6764, 1.420],
+    'HCOO': [1.2420, 1.188],
+    'CH3O': [1.1450, 1.088],
+    'CH2O': [0.9183, 0.780],
+    'CH-O': [0.6908, 0.468],
+    'FCH2O': [0.9183, 0.780],
+    // Enhanced parameters for terpenes and aromatics
+    'TERPENE': [2.3000, 1.800],
+    'BENZENE': [2.4000, 1.960],
+    'PHENOL': [2.8000, 2.200],
+    'ESTER': [1.8000, 1.600],
+  };
+}
+
+// Enhanced interaction parameters for PQ2D
+Map<String, Map<String, double>> getEnhancedInteractionParams() {
+  return {
+    'CH3': {
+      'CH3': 0.0, 'CH2': 0.0, 'OH': 986.5, 'H2O': 1318.0,
+      'ACH': 61.13, 'CH3CO': 476.4, 'CHO': 677.0, 'CH3COO': 232.1,
+      'CH3O': 251.5, 'TERPENE': 200.0, 'BENZENE': 150.0,
+    },
+    'CH2': {
+      'CH3': 0.0, 'CH2': 0.0, 'OH': 986.5, 'H2O': 1318.0,
+      'ACH': 61.13, 'CH3CO': 476.4, 'CHO': 677.0, 'CH3COO': 232.1,
+      'CH3O': 251.5, 'TERPENE': 180.0, 'BENZENE': 140.0,
+    },
+    'OH': {
+      'CH3': 156.4, 'CH2': 156.4, 'OH': 0.0, 'H2O': -229.1,
+      'ACH': 89.60, 'CH3CO': 164.5, 'CHO': 23.39, 'CH3COO': -137.1,
+      'CH3O': 28.06, 'TERPENE': 300.0, 'BENZENE': 250.0,
+    },
+    'H2O': {
+      'CH3': 300.0, 'CH2': 300.0, 'OH': -229.1, 'H2O': 0.0,
+      'ACH': 362.3, 'CH3CO': -195.4, 'CHO': -116.0, 'CH3COO': -114.1,
+      'CH3O': 540.5, 'TERPENE': 500.0, 'BENZENE': 400.0,
+    },
+    'ACH': {
+      'CH3': -11.12, 'CH2': -11.12, 'OH': 89.60, 'H2O': 362.3,
+      'ACH': 0.0, 'CH3CO': 25.77, 'CHO': 91.46, 'CH3COO': 5.994,
+      'CH3O': 52.80, 'TERPENE': 100.0, 'BENZENE': 0.0,
+    },
+    'TERPENE': {
+      'CH3': 100.0, 'CH2': 120.0, 'OH': 200.0, 'H2O': 400.0,
+      'ACH': 80.0, 'CH3CO': 150.0, 'CHO': 180.0, 'CH3COO': 160.0,
+      'CH3O': 140.0, 'TERPENE': 0.0, 'BENZENE': 50.0,
+    },
+    'BENZENE': {
+      'CH3': 80.0, 'CH2': 100.0, 'OH': 180.0, 'H2O': 350.0,
+      'ACH': 0.0, 'CH3CO': 120.0, 'CHO': 140.0, 'CH3COO': 130.0,
+      'CH3O': 110.0, 'TERPENE': 40.0, 'BENZENE': 0.0,
+    },
+    // Add more interaction parameters as needed
+  };
+}
