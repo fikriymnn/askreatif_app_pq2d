@@ -42,22 +42,22 @@ class Compound {
 // Expanded UNIFAC interaction parameters (amn) - using values from MATLAB
 final Map<String, Map<String, double>> amn = {
   "CH3": {
+    "ACH": 505.7,
+    "ACNH2": 524.1,
+    "CH2": -35.36,
     "CH3": 0.0,
-    "CH2": 0.0,
-    "OH": 476.4,
-    "C=O": 986.5,
-    "C6H5": 1318.0,
-    "NH2": 1500.0,
-    "H2O": 3000.0,
+    "CH3CO": 986.5,
+    "H2O": 300.0,
+    "OH": 156.4,
   },
   "CH2": {
-    "CH3": 0.0,
+    "ACH": 114.8,
+    "ACNH2": 524.1,
     "CH2": 0.0,
-    "OH": 1318.0,
-    "C=O": 986.5,
-    "C6H5": 1318.0,
-    "NH2": 1500.0,
-    "H2O": 3000.0,
+    "CH3": -11.12,
+    "CH3CO": 524.1,
+    "H2O": 275.8,
+    "OH": 16.51,
   },
   "OH": {
     "CH3": 476.4,
@@ -115,6 +115,7 @@ final Map<String, List<double>> groupParams = {
   "C6H5": [3.1878, 2.400],
   "NH2": [0.6948, 0.696],
   "H2O": [0.9200, 1.400],
+  "CH2O": [0.9183, 0.780],
 };
 
 final List<Compound> compounds = [
@@ -125,7 +126,7 @@ final List<Compound> compounds = [
     Thr: 0.018,
     R: 7.5037,
     Q: 6.716,
-    groups: {"CH3": 2, "CH2": 4, "OH": 1},
+    groups: {"CH3": 3, "CH2": 3, "CH=C": 2, "OH": 1},
   ),
   Compound(
     name: "Romandolide",
@@ -134,7 +135,15 @@ final List<Compound> compounds = [
     Thr: 0.0021,
     R: 11.0885,
     Q: 9.328,
-    groups: {"CH3": 3, "CH2": 6, "C=O": 1},
+    groups: {
+      "CH3": 3,
+      "CH2": 4,
+      "CH": 1,
+      "C": 1,
+      "CH3CO": 1,
+      "CH2CO": 1,
+      "CH3COO": 1,
+    },
   ),
   Compound(
     name: "Cashmeran",
@@ -143,7 +152,7 @@ final List<Compound> compounds = [
     Thr: 0.0004,
     R: 8.8464,
     Q: 7.213,
-    groups: {"CH3": 3, "C6H5": 1},
+    groups: {"CH3": 5, "CH2": 2, "CH": 1, "C": 2, "C=C": 1, "CH2CO": 1},
   ),
   Compound(
     name: "Javanol",
@@ -152,7 +161,7 @@ final List<Compound> compounds = [
     Thr: 0.000027,
     R: 9.9756,
     Q: 7.976,
-    groups: {"CH3": 2, "OH": 1, "C6H5": 1},
+    groups: {"CH3": 2, "CH2": 5, "CH": 3, "C": 3, "OH": 1},
   ),
   Compound(
     name: "Benzyl Acetate",
@@ -161,7 +170,7 @@ final List<Compound> compounds = [
     Thr: 0.0000017,
     R: 5.5992,
     Q: 4.388,
-    groups: {"CH3": 1, "C=O": 1},
+    groups: {"ACH": 5, "ACCH2": 1, "CH3COO": 1},
   ),
   Compound(
     name: "Vanillin",
@@ -170,13 +179,13 @@ final List<Compound> compounds = [
     Thr: 0.0000017,
     R: 5.3625,
     Q: 4.156,
-    groups: {"CH3": 1, "OH": 1, "C=O": 1},
+    groups: {"ACH": 3, "AC": 2, "ACOH": 1, "CHO": 1, "CH3O": 1},
   ),
   Compound(
     name: "Water",
     MW: 18.015,
     Psat: 3170,
-    Thr: double.infinity,
+    Thr: 100.0,
     R: 0.92,
     Q: 1.4,
     groups: {"H2O": 1},
@@ -185,12 +194,30 @@ final List<Compound> compounds = [
     name: "Ethanol",
     MW: 46.07,
     Psat: 7270,
-    Thr: 0.0553,
+    Thr: 50.0,
     R: 2.5755,
     Q: 2.588,
     groups: {"CH3": 1, "OH": 1},
   ),
+  Compound(
+    name: "DPG (Dipropylene Glicol)",
+    MW: 76.09,
+    Psat: 0.013,
+    Thr: 50.0,
+    R: 6.2887,
+    Q: 5.872,
+    groups: {"CH3": 2, "CH2": 1, "CH": 2, "OH": 2, "CH2O": 1},
+  ),
 ];
+
+enum SolventOption { waterEthanol, water, ethanol, dpg }
+
+Map<SolventOption, String> solventNames = {
+  SolventOption.waterEthanol: "Water + Ethanol",
+  SolventOption.water: "Water",
+  SolventOption.ethanol: "Ethanol",
+  SolventOption.dpg: "DPG (Dipropylene Glycol)",
+};
 
 class SolverPage extends StatefulWidget {
   @override
@@ -209,6 +236,7 @@ class _SolverPageState extends State<SolverPage> {
     "Benzyl Acetate",
     "Vanillin",
   ];
+  SolventOption selectedSolvent = SolventOption.waterEthanol;
 
   double totalSolventFraction = 0.3;
   double ethanolRatio = 0.4;
@@ -228,9 +256,10 @@ class _SolverPageState extends State<SolverPage> {
     Random random = Random();
     List<double> tempFractions = List.generate(6, (_) => random.nextDouble());
     double tempSum = tempFractions.reduce((a, b) => a + b);
-    tempFractions = tempFractions
-        .map((f) => f / tempSum * (1 - totalSolventFraction))
-        .toList();
+    tempFractions =
+        tempFractions
+            .map((f) => f / tempSum * (1 - totalSolventFraction))
+            .toList();
     fractions = tempFractions;
   }
 
@@ -278,7 +307,8 @@ class _SolverPageState extends State<SolverPage> {
     // Calculate combinatorial part of activity coefficient
     List<double> lnGammaC = List.filled(nComps, 0.0);
     for (int i = 0; i < nComps; i++) {
-      lnGammaC[i] = 1 -
+      lnGammaC[i] =
+          1 -
           volumeFractions[i] +
           log(volumeFractions[i]) -
           5 *
@@ -330,7 +360,8 @@ class _SolverPageState extends State<SolverPage> {
             double tau = exp(-a / (8.314 * T));
             // Protect against extreme values or zero fractions
             if (fraction > 0 && isFinite(tau) && isFinite(fraction)) {
-              residualSum += count1 *
+              residualSum +=
+                  count1 *
                   fraction *
                   (log(tau) - log(1 + (tau - 1) * fraction));
             }
@@ -452,7 +483,8 @@ class _SolverPageState extends State<SolverPage> {
             if (odorValuesPerturbed.any((val) => val.isNaN || val.isInfinite)) {
               jacobian[i][j] = 0.0; // Use a safe default
             } else {
-              double fPerturbed = odorValuesPerturbed[i + 1] -
+              double fPerturbed =
+                  odorValuesPerturbed[i + 1] -
                   targetRatios[i] * odorValuesPerturbed[0];
               jacobian[i][j] = (fPerturbed - f[i]) / h;
             }
@@ -632,9 +664,14 @@ class _SolverPageState extends State<SolverPage> {
     for (int i = 0; i < selectedComps.length; i++) {
       double yi = partialPressures[i] / Ptotal;
 
-      // Ensure threshold value is not zero
+      // ✅ PERBAIKAN: Jangan ubah threshold yang sudah valid!
       double threshold = selectedComps[i].Thr;
-      if (threshold < 1e-10) threshold = 1e-10;
+
+      // Hanya ubah jika threshold benar-benar tidak valid (0, NaN, atau infinity)
+      if (threshold <= 0 || threshold.isNaN || threshold.isInfinite) {
+        threshold = 1.0; // Set ke nilai tinggi untuk threshold tidak valid
+      }
+      // JANGAN ubah threshold yang sudah valid meski kecil!
 
       double ov = (yi * selectedComps[i].MW * Ptotal) / (R * T * threshold);
 
@@ -646,18 +683,93 @@ class _SolverPageState extends State<SolverPage> {
     return odorValues;
   }
 
+  void checkOdorValueRequirement(
+    List<Compound> selectedComps,
+    List<double> odorValues,
+  ) {
+    print("\n=== CHECKING OV REQUIREMENT ===");
+
+    // Cari index pelarut (Ethanol dan Water)
+    List<int> solventIndices = [];
+    List<int> fragranceIndices = [];
+
+    for (int i = 0; i < selectedComps.length; i++) {
+      if (selectedComps[i].name == "Ethanol" ||
+          selectedComps[i].name == "Water") {
+        solventIndices.add(i);
+      } else {
+        fragranceIndices.add(i);
+      }
+    }
+
+    print("Solvent OVs:");
+    for (int idx in solventIndices) {
+      print(
+        "  ${selectedComps[idx].name}: ${odorValues[idx].toStringAsFixed(6)}",
+      );
+    }
+
+    print("Fragrance OVs:");
+    for (int idx in fragranceIndices) {
+      print(
+        "  ${selectedComps[idx].name}: ${odorValues[idx].toStringAsFixed(6)}",
+      );
+    }
+
+    // Check requirement: OV pelarut < OV senyawa
+    bool requirementMet = true;
+    for (int solventIdx in solventIndices) {
+      for (int fragranceIdx in fragranceIndices) {
+        if (odorValues[solventIdx] >= odorValues[fragranceIdx]) {
+          print(
+            "❌ REQUIREMENT VIOLATED: ${selectedComps[solventIdx].name} OV (${odorValues[solventIdx].toStringAsFixed(6)}) >= ${selectedComps[fragranceIdx].name} OV (${odorValues[fragranceIdx].toStringAsFixed(6)})",
+          );
+          requirementMet = false;
+        }
+      }
+    }
+
+    if (requirementMet) {
+      print("✅ REQUIREMENT MET: All solvent OVs < fragrance OVs");
+    }
+  }
+
   void solveEquations() async {
     setState(() {
       isLoading = true;
       progressValue = 0.0;
     });
 
-    List<Compound> selectedList = selectedCompounds
-        .map((name) => compounds.firstWhere((c) => c.name == name))
-        .toList();
+    List<Compound> selectedList =
+        selectedCompounds
+            .map((name) => compounds.firstWhere((c) => c.name == name))
+            .toList();
 
-    Compound ethanol = compounds.firstWhere((c) => c.name == "Ethanol");
-    Compound water = compounds.firstWhere((c) => c.name == "Water");
+    // Get solvent compound(s) based on selection
+    List<Compound> solvents = [];
+    List<double> solventRatios = [];
+
+    switch (selectedSolvent) {
+      case SolventOption.waterEthanol:
+        solvents = [
+          compounds.firstWhere((c) => c.name == "Ethanol"),
+          compounds.firstWhere((c) => c.name == "Water"),
+        ];
+        solventRatios = [ethanolRatio, waterRatio];
+        break;
+      case SolventOption.water:
+        solvents = [compounds.firstWhere((c) => c.name == "Water")];
+        solventRatios = [1.0];
+        break;
+      case SolventOption.ethanol:
+        solvents = [compounds.firstWhere((c) => c.name == "Ethanol")];
+        solventRatios = [1.0];
+        break;
+      case SolventOption.dpg:
+        solvents = [compounds.firstWhere((c) => c.name == "DPG")];
+        solventRatios = [1.0];
+        break;
+    }
 
     // Generate random initial guess with time-based seed
     Random random = Random(DateTime.now().millisecondsSinceEpoch);
@@ -666,11 +778,12 @@ class _SolverPageState extends State<SolverPage> {
       (_) => random.nextDouble(),
     );
     double sum = initialGuess.reduce((a, b) => a + b);
-    initialGuess = initialGuess
-        .map((f) => f / sum * (1.0 - totalSolventFraction))
-        .toList();
+    initialGuess =
+        initialGuess
+            .map((f) => f / sum * (1.0 - totalSolventFraction))
+            .toList();
 
-    // THE KEY CHANGE: Generate random target ratios instead of equal odor values
+    // Generate random target ratios instead of equal odor values
     // These ratios determine the relative odor strengths between compounds
     List<double> targetRatios = List.generate(
       selectedList.length - 1,
@@ -694,9 +807,10 @@ class _SolverPageState extends State<SolverPage> {
             (_) => random.nextDouble(),
           );
           sum = initialGuess.reduce((a, b) => a + b);
-          initialGuess = initialGuess
-              .map((f) => f / sum * (1.0 - totalSolventFraction))
-              .toList();
+          initialGuess =
+              initialGuess
+                  .map((f) => f / sum * (1.0 - totalSolventFraction))
+                  .toList();
 
           // For later attempts, also vary the target ratios
           if (attempt >= 3) {
@@ -742,11 +856,10 @@ class _SolverPageState extends State<SolverPage> {
     // Now recalculate all the values based on the optimized fractions
     List<double> totalFractions = [
       ...optimizedFractions,
-      ethanolRatio * totalSolventFraction,
-      waterRatio * totalSolventFraction,
+      ...solventRatios.map((ratio) => ratio * totalSolventFraction),
     ];
 
-    List<Compound> totalCompounds = [...selectedList, ethanol, water];
+    List<Compound> totalCompounds = [...selectedList, ...solvents];
 
     List<double> gammas = calculateImprovedUnifacCoefficients(
       totalCompounds,
@@ -768,20 +881,6 @@ class _SolverPageState extends State<SolverPage> {
     double avgRatioDiff =
         ratioDiffs.reduce((a, b) => a + b) / ratioDiffs.length;
 
-    // Calculate solvent OVs
-    double ethanolOV = calculateSolventOV(
-      ethanol,
-      ethanolRatio * totalSolventFraction,
-      selectedList,
-      optimizedFractions,
-    );
-    double waterOV = calculateSolventOV(
-      water,
-      waterRatio * totalSolventFraction,
-      selectedList,
-      optimizedFractions,
-    );
-
     // Update result string with comprehensive information
     String newResult =
         "PERFUME SOLUTION DETAILS (Modified Newton-Raphson Method):\n";
@@ -790,36 +889,43 @@ class _SolverPageState extends State<SolverPage> {
       newResult +=
           "${selectedList[i].name}: ${optimizedFractions[i].toStringAsFixed(4)}\n";
     }
-    newResult +=
-        "Ethanol: ${(ethanolRatio * totalSolventFraction).toStringAsFixed(4)}\n";
-    newResult +=
-        "Water: ${(waterRatio * totalSolventFraction).toStringAsFixed(4)}\n";
+
+    // Show solvent fractions
+    for (int i = 0; i < solvents.length; i++) {
+      newResult +=
+          "${solvents[i].name}: ${(solventRatios[i] * totalSolventFraction).toStringAsFixed(4)}\n";
+    }
 
     newResult += "\n=== ACTIVITY COEFFICIENTS ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult += "${selectedList[i].name}: ${gammas[i].toStringAsFixed(4)}\n";
     }
-    newResult += "Ethanol: ${gammas[selectedList.length].toStringAsFixed(4)}\n";
-    newResult +=
-        "Water: ${gammas[selectedList.length + 1].toStringAsFixed(4)}\n";
+
+    // Show solvent activity coefficients
+    for (int i = 0; i < solvents.length; i++) {
+      newResult +=
+          "${solvents[i].name}: ${gammas[selectedList.length + i].toStringAsFixed(4)}\n";
+    }
 
     newResult += "\n=== ODOR VALUES ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult += "${selectedList[i].name}: ${ov[i].toStringAsFixed(4)}\n";
     }
 
-    // newResult += "\n=== TARGET RATIOS ===\n";
-    // newResult += "Base Compound: ${selectedList[0].name}\n";
-    // for (int i = 0; i < targetRatios.length; i++) {
-    //   newResult +=
-    //       "${selectedList[i + 1].name}: ${targetRatios[i].toStringAsFixed(4)}\n";
-    // }
-    // newResult +=
-    //     "Average Ratio Difference: ${avgRatioDiff.toStringAsFixed(6)}\n";
-
+    // Calculate and show solvent odor values
     newResult += "\n=== SOLVENT ODOR VALUES ===\n";
-    newResult += "Ethanol: ${ethanolOV.toStringAsFixed(4)}\n";
-    newResult += "Water: ${waterOV.toStringAsFixed(4)}\n";
+    List<double> solventOVs = [];
+
+    for (int i = 0; i < solvents.length; i++) {
+      double solventOV = calculateSolventOV(
+        solvents[i],
+        solventRatios[i] * totalSolventFraction,
+        selectedList,
+        optimizedFractions,
+      );
+      solventOVs.add(solventOV);
+      newResult += "${solvents[i].name}: ${solventOV.toStringAsFixed(6)}\n";
+    }
 
     setState(() {
       result = newResult;
@@ -837,38 +943,62 @@ class _SolverPageState extends State<SolverPage> {
     const double R = 8.314462618;
     const double T = 298.15;
 
-    // Combine fragrance compounds + solvent
+    // Gabungkan semua komponen (fragrance + solvent)
     List<Compound> allCompounds = [...fragranceCompounds, solvent];
     List<double> allFractions = [...fragranceFractions, fraction];
 
-    // Calculate gamma for all
+    // Hitung koefisien aktivitas untuk SEMUA komponen sekaligus
     List<double> gammas = calculateImprovedUnifacCoefficients(
       allCompounds,
       allFractions,
     );
+
+    // Ambil gamma untuk pelarut (index terakhir)
     double gammaSolvent = gammas.last;
 
-    // Calculate partial pressures for all components
+    // Hitung tekanan parsial untuk SEMUA komponen
     List<double> partialPressures = [];
     for (int i = 0; i < allCompounds.length; i++) {
       double Pi = gammas[i] * allFractions[i] * allCompounds[i].Psat;
-      // Handle potential non-finite values
-      Pi = isFinite(Pi) ? Pi : 1e-10;
+      Pi = (Pi.isNaN || Pi.isInfinite || Pi < 0) ? 1e-10 : Pi;
       partialPressures.add(Pi);
     }
 
-    // Calculate total pressure
+    // Hitung tekanan total dari SEMUA komponen
     double Ptotal = partialPressures.reduce((a, b) => a + b);
-    // Prevent division by zero
     Ptotal = max(Ptotal, 1e-10);
 
-    // Calculate partial pressure and vapor fraction of solvent
-    double vaporPressure = gammaSolvent * fraction * solvent.Psat;
-    double yi = vaporPressure / Ptotal;
+    // Hitung fraksi uap pelarut
+    double yi = partialPressures.last / Ptotal;
 
-    // Calculate and return OV, handling potential non-finite values
-    double ov = (yi * solvent.MW * Ptotal) / (R * T * max(solvent.Thr, 1e-10));
+    // Gunakan threshold yang benar
+    double threshold = solvent.Thr;
+    if (threshold <= 0 || threshold.isNaN || threshold.isInfinite) {
+      threshold = 1.0;
+    }
+
+    // Hitung OV
+    double ov = (yi * solvent.MW * Ptotal) / (R * T * threshold);
     return isFinite(ov) ? ov : 0.0;
+  }
+
+  void debugOVCalculation(
+    List<Compound> allCompounds,
+    List<double> allFractions,
+    List<double> odorValues,
+  ) {
+    print("\n=== DEBUG OV CALCULATION ===");
+    print("Total compounds: ${allCompounds.length}");
+
+    for (int i = 0; i < allCompounds.length; i++) {
+      print("${allCompounds[i].name}:");
+      print("  Fraction: ${allFractions[i].toStringAsFixed(6)}");
+      print("  Psat: ${allCompounds[i].Psat}");
+      print("  Threshold: ${allCompounds[i].Thr}");
+      if (i < odorValues.length) {
+        print("  OV: ${odorValues[i].toStringAsFixed(6)}");
+      }
+    }
   }
 
   @override
@@ -931,23 +1061,55 @@ class _SolverPageState extends State<SolverPage> {
                         generateRandomFractions();
                       });
                     },
-                    items: compounds
-                        .where(
-                          (c) => !["Water", "Ethanol"].contains(c.name),
-                        )
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c.name,
-                            child: Text(c.name),
-                          ),
-                        )
-                        .toList(),
+                    items:
+                        compounds
+                            .where(
+                              (c) => !["Water", "Ethanol"].contains(c.name),
+                            )
+                            .map(
+                              (c) => DropdownMenuItem(
+                                value: c.name,
+                                child: Text(c.name),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
 
               SizedBox(height: 16),
 
+              Text(
+                "Pilih Pelarut:",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 10),
+              DropdownButton<SolventOption>(
+                isExpanded: true,
+                value: selectedSolvent,
+                onChanged: (newValue) {
+                  setState(() {
+                    selectedSolvent = newValue!;
+                    // Reset water/ethanol ratio to default if switching back to dual solvent
+                    if (newValue == SolventOption.waterEthanol) {
+                      waterRatio = 0.6;
+                      ethanolRatio = 0.4;
+                    }
+                  });
+                },
+                items:
+                    SolventOption.values
+                        .map(
+                          (option) => DropdownMenuItem(
+                            value: option,
+                            child: Text(solventNames[option]!),
+                          ),
+                        )
+                        .toList(),
+              ),
+              SizedBox(height: 16),
+
               // Solvent information
+              // Replace the existing solvent information Card with this:
               Card(
                 color: Colors.blue[50],
                 child: Padding(
@@ -960,8 +1122,65 @@ class _SolverPageState extends State<SolverPage> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       SizedBox(height: 8),
-                      Text("Water : Ethanol Ratio = 60 : 40"),
-                      SizedBox(height: 12),
+
+                      // Show ratio sliders only for water+ethanol option
+                      if (selectedSolvent == SolventOption.waterEthanol) ...[
+                        Text("Water : Ethanol Ratio"),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: (waterRatio * 100).round(),
+                              child: Container(
+                                height: 20,
+                                color: Colors.blue[200],
+                                child: Center(
+                                  child: Text(
+                                    "${(waterRatio * 100).round()}%",
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: (ethanolRatio * 100).round(),
+                              child: Container(
+                                height: 20,
+                                color: Colors.amber[200],
+                                child: Center(
+                                  child: Text(
+                                    "${(ethanolRatio * 100).round()}%",
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: waterRatio,
+                          min: 0.1,
+                          max: 0.9,
+                          divisions: 8,
+                          label: waterRatio.toStringAsFixed(1),
+                          onChanged: (value) {
+                            setState(() {
+                              waterRatio = value;
+                              ethanolRatio = 1.0 - value;
+                            });
+                          },
+                        ),
+                        Text(
+                          "Water: ${(waterRatio * 100).round()}% | Ethanol: ${(ethanolRatio * 100).round()}%",
+                          style: TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                        SizedBox(height: 12),
+                      ] else ...[
+                        Text(
+                          "Selected Solvent: ${solventNames[selectedSolvent]}",
+                        ),
+                        SizedBox(height: 12),
+                      ],
+
                       Text("Total Solvent Fraction:"),
                       Slider(
                         value: totalSolventFraction,
@@ -976,10 +1195,16 @@ class _SolverPageState extends State<SolverPage> {
                           });
                         },
                       ),
-                      Text(
-                        "Ethanol: ${(ethanolRatio * totalSolventFraction).toStringAsFixed(3)} | Water: ${(waterRatio * totalSolventFraction).toStringAsFixed(3)}",
-                        style: TextStyle(fontStyle: FontStyle.italic),
-                      ),
+                      if (selectedSolvent == SolventOption.waterEthanol)
+                        Text(
+                          "Ethanol: ${(ethanolRatio * totalSolventFraction).toStringAsFixed(3)} | Water: ${(waterRatio * totalSolventFraction).toStringAsFixed(3)}",
+                          style: TextStyle(fontStyle: FontStyle.italic),
+                        )
+                      else
+                        Text(
+                          "${solventNames[selectedSolvent]}: ${totalSolventFraction.toStringAsFixed(3)}",
+                          style: TextStyle(fontStyle: FontStyle.italic),
+                        ),
                     ],
                   ),
                 ),
@@ -989,31 +1214,32 @@ class _SolverPageState extends State<SolverPage> {
 
               // Calculate button
               Center(
-                child: isLoading
-                    ? Column(
-                        children: [
-                          LinearProgressIndicator(value: progressValue),
-                          SizedBox(height: 8),
-                          Text(
-                            "Calculating... ${(progressValue * 100).toStringAsFixed(1)}%",
+                child:
+                    isLoading
+                        ? Column(
+                          children: [
+                            LinearProgressIndicator(value: progressValue),
+                            SizedBox(height: 8),
+                            Text(
+                              "Calculating... ${(progressValue * 100).toStringAsFixed(1)}%",
+                            ),
+                          ],
+                        )
+                        : ElevatedButton(
+                          onPressed: solveEquations,
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 12,
+                            ),
+                            backgroundColor: Colors.purple[700],
+                            textStyle: TextStyle(fontSize: 16),
                           ),
-                        ],
-                      )
-                    : ElevatedButton(
-                        onPressed: solveEquations,
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 12,
+                          child: Text(
+                            "Calculate Optimal Odor Values",
+                            style: TextStyle(color: Colors.white),
                           ),
-                          backgroundColor: Colors.purple[700],
-                          textStyle: TextStyle(fontSize: 16),
                         ),
-                        child: Text(
-                          "Calculate Optimal Odor Values",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
               ),
 
               SizedBox(height: 24),
@@ -1021,31 +1247,30 @@ class _SolverPageState extends State<SolverPage> {
               // Results display
               result.isNotEmpty
                   ? Container(
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "POS Optimization Results",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "POS Optimization Results",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                          Divider(),
-                          Text(
-                            result,
-                            style:
-                                TextStyle(fontFamily: 'Courier', fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    )
+                        ),
+                        Divider(),
+                        Text(
+                          result,
+                          style: TextStyle(fontFamily: 'Courier', fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  )
                   : Container(),
 
               SizedBox(height: 24),
