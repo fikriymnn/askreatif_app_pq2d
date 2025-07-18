@@ -347,10 +347,7 @@ class _SolverPageState extends State<SolverPage> {
 
   void generateRandomFractions() {
     Random random = Random();
-    List<double> tempFractions = List.generate(
-      6,
-      (_) => random.nextDouble(),
-    ); // 6 untuk fragrance compounds
+    List<double> tempFractions = List.generate(6, (_) => random.nextDouble());
     double tempSum = tempFractions.reduce((a, b) => a + b);
     tempFractions =
         tempFractions
@@ -365,27 +362,28 @@ class _SolverPageState extends State<SolverPage> {
     List<double> moleFractions,
   ) {
     const double T = 298.15; // Temperature in K
-    const double R = 8.314; // Gas constant
     final int nComps = comps.length;
-
-    // Initialize activity coefficients
     List<double> gammas = List.filled(nComps, 1.0);
 
-    // Step 1: Calculate molecular parameters (r and q)
+    // Step 1: Calculate combinatorial part
     List<double> r = List.filled(nComps, 0.0);
     List<double> q = List.filled(nComps, 0.0);
 
+    // Calculate r and q for each compound from its groups
     for (int i = 0; i < nComps; i++) {
       Compound comp = comps[i];
       comp.groups.forEach((group, count) {
         if (groupParams.containsKey(group)) {
-          r[i] += count * groupParams[group]![0]; // Volume parameter
-          q[i] += count * groupParams[group]![1]; // Surface area parameter
+          r[i] += count * groupParams[group]![0];
+          q[i] += count * groupParams[group]![1];
         }
       });
     }
 
-    // Step 2: Calculate mixture properties
+    // Calculate volume and surface area fractions
+    List<double> volumeFractions = List.filled(nComps, 0.0);
+    List<double> surfaceAreaFractions = List.filled(nComps, 0.0);
+
     double sumRX = 0.0;
     double sumQX = 0.0;
 
@@ -394,317 +392,92 @@ class _SolverPageState extends State<SolverPage> {
       sumQX += q[i] * moleFractions[i];
     }
 
-    // Prevent division by zero
-    if (sumRX <= 0) sumRX = 1e-10;
-    if (sumQX <= 0) sumQX = 1e-10;
-
-    // Calculate volume and surface area fractions
-    List<double> phi = List.filled(nComps, 0.0); // Volume fractions
-    List<double> theta = List.filled(nComps, 0.0); // Surface area fractions
-
     for (int i = 0; i < nComps; i++) {
-      phi[i] = (r[i] * moleFractions[i]) / sumRX;
-      theta[i] = (q[i] * moleFractions[i]) / sumQX;
+      volumeFractions[i] = r[i] * moleFractions[i] / sumRX;
+      surfaceAreaFractions[i] = q[i] * moleFractions[i] / sumQX;
     }
 
-    // Step 3: Calculate combinatorial part (sesuai Persamaan 2.12)
+    // Calculate combinatorial part of activity coefficient
     List<double> lnGammaC = List.filled(nComps, 0.0);
-
-    // Calculate l_i parameter for each component
-    List<double> l = List.filled(nComps, 0.0);
     for (int i = 0; i < nComps; i++) {
-      l[i] = 5.0 * (r[i] - q[i]) - (r[i] - 1.0);
+      lnGammaC[i] =
+          1 -
+          volumeFractions[i] +
+          log(volumeFractions[i]) -
+          5 *
+              q[i] *
+              (1 -
+                  volumeFractions[i] / surfaceAreaFractions[i] +
+                  log(volumeFractions[i] / surfaceAreaFractions[i]));
     }
 
-    // Calculate sum of x_j * l_j
-    double sumXL = 0.0;
-    for (int j = 0; j < nComps; j++) {
-      sumXL += moleFractions[j] * l[j];
-    }
-
-    for (int i = 0; i < nComps; i++) {
-      if (phi[i] > 0 && theta[i] > 0 && moleFractions[i] > 0) {
-        double term1 = log(phi[i] / moleFractions[i]);
-        double term2 = 5.0 * q[i] * log(theta[i] / phi[i]);
-        double term3 = l[i];
-        double term4 = (phi[i] / moleFractions[i]) * sumXL;
-
-        lnGammaC[i] = term1 + term2 + term3 - term4;
-      } else {
-        lnGammaC[i] = 0.0;
-      }
-    }
-
-    // Step 4: Calculate residual part - Enhanced for PQ2D
+    // Step 2: Calculate residual part (simplified for implementation ease)
     List<double> lnGammaR = List.filled(nComps, 0.0);
 
-    // Get all unique groups across all components
-    Set<String> allGroups = {};
-    for (var comp in comps) {
-      allGroups.addAll(comp.groups.keys);
-    }
+    // Calculate group fractions across the mixture
+    Map<String, double> groupFractions = {};
+    Map<String, double> totalGroups = {}; // Changed from int to double
 
-    // Calculate group mole fractions in the mixture
-    Map<String, double> X_m = {}; // Group mole fractions in mixture
-    double totalGroupMoles = 0.0;
-
-    for (String group in allGroups) {
-      double groupMoles = 0.0;
-      for (int i = 0; i < nComps; i++) {
-        if (comps[i].groups.containsKey(group)) {
-          groupMoles += comps[i].groups[group]! * moleFractions[i];
-        }
-      }
-      X_m[group] = groupMoles;
-      totalGroupMoles += groupMoles;
-    }
-
-    // Normalize group mole fractions
-    if (totalGroupMoles > 0) {
-      X_m.forEach((group, moles) {
-        X_m[group] = moles / totalGroupMoles;
+    // First, count total groups in the mixture
+    for (int i = 0; i < nComps; i++) {
+      comps[i].groups.forEach((group, count) {
+        // FIX: Use the mole fraction directly without converting to int
+        totalGroups[group] =
+            (totalGroups[group] ?? 0.0) + count * moleFractions[i];
       });
     }
 
-    // Calculate group activity coefficients in mixture (Persamaan 2.14)
-    Map<String, double> lnGamma_k = {};
+    // Calculate group fractions
+    double totalGroupCount = totalGroups.values.reduce((a, b) => a + b);
 
-    for (String k in allGroups) {
-      if (!groupParams.containsKey(k)) continue;
-
-      double Q_k = groupParams[k]![1];
-
-      // Calculate theta_m for all groups in mixture
-      Map<String, double> theta_m = {};
-      double sumQX = 0.0;
-
-      for (String m in allGroups) {
-        if (groupParams.containsKey(m)) {
-          double Q_m = groupParams[m]![1];
-          double X_m_val = X_m[m] ?? 0.0;
-          sumQX += Q_m * X_m_val;
-        }
-      }
-
-      // Calculate theta_m fractions
-      for (String m in allGroups) {
-        if (groupParams.containsKey(m)) {
-          double Q_m = groupParams[m]![1];
-          double X_m_val = X_m[m] ?? 0.0;
-          if (sumQX > 0) {
-            theta_m[m] = (Q_m * X_m_val) / sumQX;
-          } else {
-            theta_m[m] = 0.0;
-          }
-        }
-      }
-
-      // Calculate sum in ln term
-      double sumThetaPsi = 0.0;
-      for (String m in allGroups) {
-        double theta_m_val = theta_m[m] ?? 0.0;
-        double a_mk = 0.0;
-        if (amn.containsKey(m) && amn[m]!.containsKey(k)) {
-          a_mk = amn[m]![k]!;
-        }
-        double psi_mk = exp(-a_mk / (R * T));
-        sumThetaPsi += theta_m_val * psi_mk;
-      }
-
-      // Calculate second sum term
-      double secondSum = 0.0;
-      for (String m in allGroups) {
-        double theta_m_val = theta_m[m] ?? 0.0;
-        double a_km = 0.0;
-        if (amn.containsKey(k) && amn[k]!.containsKey(m)) {
-          a_km = amn[k]![m]!;
-        }
-        double psi_km = exp(-a_km / (R * T));
-
-        // Calculate denominator for this term
-        double denominator = 0.0;
-        for (String n in allGroups) {
-          double theta_n_val = theta_m[n] ?? 0.0;
-          double a_nm = 0.0;
-          if (amn.containsKey(n) && amn[n]!.containsKey(m)) {
-            a_nm = amn[n]![m]!;
-          }
-          double psi_nm = exp(-a_nm / (R * T));
-          denominator += theta_n_val * psi_nm;
-        }
-
-        if (denominator > 0) {
-          secondSum += (theta_m_val * psi_km) / denominator;
-        }
-      }
-
-      // Apply Persamaan 2.14
-      double lnGamma_k_val = 0.0;
-      if (sumThetaPsi > 0) {
-        lnGamma_k_val = Q_k * (1.0 - log(sumThetaPsi) - secondSum);
-      }
-
-      lnGamma_k[k] = lnGamma_k_val;
+    // Check for zero division
+    if (totalGroupCount > 0) {
+      totalGroups.forEach((group, count) {
+        groupFractions[group] = count / totalGroupCount;
+      });
+    } else {
+      // Default equal distribution if we have zero total
+      totalGroups.keys.forEach((group) {
+        groupFractions[group] = 1.0 / totalGroups.length;
+      });
     }
 
-    // Calculate group activity coefficients in pure components (Persamaan 2.14)
-    Map<String, Map<String, double>> lnGamma_k_pure = {};
-
-    for (int i = 0; i < nComps; i++) {
-      lnGamma_k_pure[i.toString()] = {};
-
-      // Get groups for this component
-      Set<String> compGroups = comps[i].groups.keys.toSet();
-
-      // Calculate group mole fractions in pure component
-      Map<String, double> X_pure = {};
-      double totalPureGroups = 0.0;
-
-      for (String group in compGroups) {
-        double count = comps[i].groups[group]?.toDouble() ?? 0.0;
-        X_pure[group] = count;
-        totalPureGroups += count;
-      }
-
-      // Normalize
-      if (totalPureGroups > 0) {
-        X_pure.forEach((group, count) {
-          X_pure[group] = count / totalPureGroups;
-        });
-      }
-
-      // Calculate group activity coefficients in pure component using Persamaan 2.14
-      for (String k in compGroups) {
-        if (!groupParams.containsKey(k)) continue;
-
-        double Q_k = groupParams[k]![1];
-
-        // Calculate theta_m for pure component
-        Map<String, double> theta_m_pure = {};
-        double sumQX_pure = 0.0;
-
-        for (String m in compGroups) {
-          if (groupParams.containsKey(m)) {
-            double Q_m = groupParams[m]![1];
-            double X_m_val = X_pure[m] ?? 0.0;
-            sumQX_pure += Q_m * X_m_val;
-          }
-        }
-
-        // Calculate theta_m fractions for pure component
-        for (String m in compGroups) {
-          if (groupParams.containsKey(m)) {
-            double Q_m = groupParams[m]![1];
-            double X_m_val = X_pure[m] ?? 0.0;
-            if (sumQX_pure > 0) {
-              theta_m_pure[m] = (Q_m * X_m_val) / sumQX_pure;
-            } else {
-              theta_m_pure[m] = 0.0;
-            }
-          }
-        }
-
-        // Calculate sum in ln term for pure component
-        double sumThetaPsi_pure = 0.0;
-        for (String m in compGroups) {
-          double theta_m_val = theta_m_pure[m] ?? 0.0;
-          double a_mk = 0.0;
-          if (amn.containsKey(m) && amn[m]!.containsKey(k)) {
-            a_mk = amn[m]![k]!;
-          }
-          double psi_mk = exp(-a_mk / (R * T));
-          sumThetaPsi_pure += theta_m_val * psi_mk;
-        }
-
-        // Calculate second sum term for pure component
-        double secondSum_pure = 0.0;
-        for (String m in compGroups) {
-          double theta_m_val = theta_m_pure[m] ?? 0.0;
-          double a_km = 0.0;
-          if (amn.containsKey(k) && amn[k]!.containsKey(m)) {
-            a_km = amn[k]![m]!;
-          }
-          double psi_km = exp(-a_km / (R * T));
-
-          // Calculate denominator for this term
-          double denominator_pure = 0.0;
-          for (String n in compGroups) {
-            double theta_n_val = theta_m_pure[n] ?? 0.0;
-            double a_nm = 0.0;
-            if (amn.containsKey(n) && amn[n]!.containsKey(m)) {
-              a_nm = amn[n]![m]!;
-            }
-            double psi_nm = exp(-a_nm / (R * T));
-            denominator_pure += theta_n_val * psi_nm;
-          }
-
-          if (denominator_pure > 0) {
-            secondSum_pure += (theta_m_val * psi_km) / denominator_pure;
-          }
-        }
-
-        // Apply Persamaan 2.14 for pure component
-        double lnGamma_k_pure_val = 0.0;
-        if (sumThetaPsi_pure > 0) {
-          lnGamma_k_pure_val =
-              Q_k * (1.0 - log(sumThetaPsi_pure) - secondSum_pure);
-        }
-
-        lnGamma_k_pure[i.toString()]![k] = lnGamma_k_pure_val;
-      }
-    }
-
-    // Calculate residual part for each component (Persamaan 2.13)
+    // Simple residual calculation (this is highly simplified)
     for (int i = 0; i < nComps; i++) {
       double residualSum = 0.0;
 
-      // Apply Persamaan 2.13: ln γᵢᴿ = Σₖ νₖ⁽ⁱ⁾[ln Γₖ - ln Γₖ⁽ⁱ⁾]
-      comps[i].groups.forEach((group, count) {
-        double lnGamma_mix = lnGamma_k[group] ?? 0.0;
-        double lnGamma_pure = lnGamma_k_pure[i.toString()]?[group] ?? 0.0;
-
-        // νₖ⁽ⁱ⁾ is the count of group k in component i
-        residualSum += count * (lnGamma_mix - lnGamma_pure);
+      comps[i].groups.forEach((group1, count1) {
+        groupFractions.forEach((group2, fraction) {
+          if (amn.containsKey(group1) && amn[group1]!.containsKey(group2)) {
+            double a = amn[group1]![group2]!;
+            double tau = exp(-a / (8.314 * T));
+            // Protect against extreme values or zero fractions
+            if (fraction > 0 && isFinite(tau) && isFinite(fraction)) {
+              residualSum +=
+                  count1 *
+                  fraction *
+                  (log(tau) - log(1 + (tau - 1) * fraction));
+            }
+          }
+        });
       });
 
       lnGammaR[i] = residualSum;
     }
 
-    // Step 5: Combine parts and apply PQ2D specific adjustments
+    // Combine combinatorial and residual parts
     for (int i = 0; i < nComps; i++) {
-      // Check for numerical issues
-      if (!lnGammaC[i].isFinite) lnGammaC[i] = 0.0;
-      if (!lnGammaR[i].isFinite) lnGammaR[i] = 0.0;
+      // Make sure we don't have any NaN or infinity values
+      if (!isFinite(lnGammaC[i])) lnGammaC[i] = 0;
+      if (!isFinite(lnGammaR[i])) lnGammaR[i] = 0;
 
-      // Apply PQ2D specific correction factor
-      double pq2dCorrection = calculatePQ2DCorrection(
-        comps[i],
-        moleFractions[i],
-      );
+      gammas[i] = exp(lnGammaC[i] + lnGammaR[i]);
 
-      // Total activity coefficient
-      double lnGammaTotal = lnGammaC[i] + lnGammaR[i] + pq2dCorrection;
-
-      gammas[i] = exp(lnGammaTotal);
-
-      // Safety bounds for numerical stability
-      if (!gammas[i].isFinite || gammas[i] <= 0) {
-        gammas[i] = 1.0;
-      }
-
-      // Apply reasonable bounds for perfumery applications
-      if (gammas[i] > 100.0) gammas[i] = 100.0;
-      if (gammas[i] < 0.01) gammas[i] = 0.01;
+      // Safety check for extreme values
+      if (!isFinite(gammas[i])) gammas[i] = 1.0;
     }
 
     return gammas;
-  }
-
-  // PQ2D specific correction factor for perfumery compounds
-  double calculatePQ2DCorrection(Compound comp, double moleFraction) {
-    // For standard UNIFAC calculation without octant factors
-    // This can be extended later if needed for specific PQ2D adjustments
-    return 0.0;
   }
 
   // Helper function to check if a number is finite
@@ -717,13 +490,13 @@ class _SolverPageState extends State<SolverPage> {
     List<Compound> selectedComps,
     double solventFraction,
     List<double> initialGuess,
-    List<double> targetRatios,
+    List<double> targetRatios, // Add target odor value ratios
   ) {
     const int maxIterations = 100;
     const double tolerance = 1e-6;
 
     int numComps = selectedComps.length;
-    List<double> x = List.from(initialGuess);
+    List<double> x = List.from(initialGuess); // Use the provided initial guess
 
     try {
       for (int iter = 0; iter < maxIterations; iter++) {
@@ -756,7 +529,7 @@ class _SolverPageState extends State<SolverPage> {
           return x; // Solution found
         }
 
-        // Set up Jacobian matrix untuk Newton-Raphson method
+        // Set up Jacobian matrix for Newton-Raphson method
         List<List<double>> jacobian = List.generate(
           numComps - 1,
           (_) => List.filled(numComps - 1, 0.0),
@@ -801,7 +574,7 @@ class _SolverPageState extends State<SolverPage> {
 
             // Check for non-finite values
             if (odorValuesPerturbed.any((val) => val.isNaN || val.isInfinite)) {
-              jacobian[i][j] = 0.0;
+              jacobian[i][j] = 0.0; // Use a safe default
             } else {
               double fPerturbed =
                   odorValuesPerturbed[i + 1] -
@@ -840,10 +613,11 @@ class _SolverPageState extends State<SolverPage> {
           throw Exception("Non-finite step values");
         }
 
-        // Update x dengan damping factor
+        // Update x with damping factor to improve stability
         double dampingFactor = 0.5;
         for (int i = 0; i < numComps - 1; i++) {
           x[i + 1] += dampingFactor * dx[i];
+          // Ensure no negative values
           x[i + 1] = max(0.0, min(1.0 - solventFraction, x[i + 1]));
         }
 
@@ -853,6 +627,7 @@ class _SolverPageState extends State<SolverPage> {
 
         // Ensure x[0] is also non-negative
         if (x[0] < 0) {
+          // If x[0] becomes negative, rescale all other values
           double scale = (1.0 - solventFraction) / sum;
           for (int i = 1; i < numComps; i++) {
             x[i] *= scale;
@@ -861,9 +636,12 @@ class _SolverPageState extends State<SolverPage> {
         }
       }
 
+      // If we get here, Newton-Raphson didn't converge
+      // Return current best estimate
       return x;
     } catch (e) {
       print("Error in Newton-Raphson solver: $e");
+      // Rethrow to allow for retry with different initial guess
       throw Exception("Newton-Raphson failed to converge: $e");
     }
   }
@@ -979,18 +757,19 @@ class _SolverPageState extends State<SolverPage> {
     for (int i = 0; i < selectedComps.length; i++) {
       double yi = partialPressures[i] / Ptotal;
 
+      // ✅ PERBAIKAN: Jangan ubah threshold yang sudah valid!
       double threshold = selectedComps[i].Thr;
 
-      // Hanya handle kasus threshold yang benar-benar tidak valid
+      // Hanya ubah jika threshold benar-benar tidak valid (0, NaN, atau infinity)
       if (threshold <= 0 || threshold.isNaN || threshold.isInfinite) {
-        threshold = 1e-6; // Gunakan nilai kecil untuk threshold tidak valid
+        threshold = 1.0; // Set ke nilai tinggi untuk threshold tidak valid
       }
-      // TIDAK mengubah threshold yang sudah valid
+      // JANGAN ubah threshold yang sudah valid meski kecil!
 
       double ov = (yi * selectedComps[i].MW * Ptotal) / (R * T * threshold);
 
       // Ensure OV is finite
-      ov = (ov.isNaN || ov.isInfinite) ? 1e-6 : ov;
+      ov = (ov.isNaN || ov.isInfinite) ? 1.0 : ov;
       odorValues.add(ov);
     }
 
@@ -998,18 +777,18 @@ class _SolverPageState extends State<SolverPage> {
   }
 
   void checkOdorValueRequirement(
-    List<Compound> allCompounds,
-    List<double> allOdorValues,
+    List<Compound> selectedComps,
+    List<double> odorValues,
   ) {
     print("\n=== CHECKING OV REQUIREMENT ===");
 
-    // ✅ PERBAIKAN: Identifikasi pelarut berdasarkan nama yang dikenal
-    List<String> knownSolvents = ["Ethanol", "Water", "DPG"];
+    // Cari index pelarut (Ethanol dan Water)
     List<int> solventIndices = [];
     List<int> fragranceIndices = [];
 
-    for (int i = 0; i < allCompounds.length; i++) {
-      if (knownSolvents.contains(allCompounds[i].name)) {
+    for (int i = 0; i < selectedComps.length; i++) {
+      if (selectedComps[i].name == "Ethanol" ||
+          selectedComps[i].name == "Water") {
         solventIndices.add(i);
       } else {
         fragranceIndices.add(i);
@@ -1019,24 +798,24 @@ class _SolverPageState extends State<SolverPage> {
     print("Solvent OVs:");
     for (int idx in solventIndices) {
       print(
-        "  ${allCompounds[idx].name}: ${allOdorValues[idx].toStringAsFixed(6)}",
+        "  ${selectedComps[idx].name}: ${odorValues[idx].toStringAsFixed(6)}",
       );
     }
 
     print("Fragrance OVs:");
     for (int idx in fragranceIndices) {
       print(
-        "  ${allCompounds[idx].name}: ${allOdorValues[idx].toStringAsFixed(6)}",
+        "  ${selectedComps[idx].name}: ${odorValues[idx].toStringAsFixed(6)}",
       );
     }
 
-    // Check requirement: OV pelarut < OV senyawa fragrance
+    // Check requirement: OV pelarut < OV senyawa
     bool requirementMet = true;
     for (int solventIdx in solventIndices) {
       for (int fragranceIdx in fragranceIndices) {
-        if (allOdorValues[solventIdx] >= allOdorValues[fragranceIdx]) {
+        if (odorValues[solventIdx] >= odorValues[fragranceIdx]) {
           print(
-            "❌ REQUIREMENT VIOLATED: ${allCompounds[solventIdx].name} OV (${allOdorValues[solventIdx].toStringAsFixed(6)}) >= ${allCompounds[fragranceIdx].name} OV (${allOdorValues[fragranceIdx].toStringAsFixed(6)})",
+            "❌ REQUIREMENT VIOLATED: ${selectedComps[solventIdx].name} OV (${odorValues[solventIdx].toStringAsFixed(6)}) >= ${selectedComps[fragranceIdx].name} OV (${odorValues[fragranceIdx].toStringAsFixed(6)})",
           );
           requirementMet = false;
         }
@@ -1054,13 +833,12 @@ class _SolverPageState extends State<SolverPage> {
       progressValue = 0.0;
     });
 
-    // ✅ PERBAIKAN: Pastikan hanya mengambil senyawa fragrance, bukan DPG
     List<Compound> selectedList =
         selectedCompounds
             .map((name) => compounds.firstWhere((c) => c.name == name))
             .toList();
 
-    // ✅ PERBAIKAN: DPG diperlakukan sebagai pelarut
+    // Get solvent compound(s) based on selection
     List<Compound> solvents = [];
     List<double> solventRatios = [];
 
@@ -1086,18 +864,7 @@ class _SolverPageState extends State<SolverPage> {
         break;
     }
 
-    // Validasi bahwa DPG tidak ada dalam selectedList
-    bool dpgInFragrance = selectedList.any((comp) => comp.name == "DPG");
-    if (dpgInFragrance) {
-      setState(() {
-        result =
-            "ERROR: DPG ditemukan dalam daftar senyawa fragrance. DPG harus hanya sebagai pelarut.";
-        isLoading = false;
-      });
-      return;
-    }
-
-    // Generate random initial guess dengan time-based seed
+    // Generate random initial guess with time-based seed
     Random random = Random(DateTime.now().millisecondsSinceEpoch);
     List<double> initialGuess = List.generate(
       selectedList.length,
@@ -1109,22 +876,25 @@ class _SolverPageState extends State<SolverPage> {
             .map((f) => f / sum * (1.0 - totalSolventFraction))
             .toList();
 
-    // Generate random target ratios
+    // Generate random target ratios instead of equal odor values
+    // These ratios determine the relative odor strengths between compounds
     List<double> targetRatios = List.generate(
       selectedList.length - 1,
-      (_) => 0.8 + 0.4 * random.nextDouble(),
+      (_) => 0.8 + 0.4 * random.nextDouble(), // Ratios between 0.8 and 1.2
     );
 
-    // Try Newton-Raphson dengan multiple initial guesses
+    // Try Newton-Raphson with multiple initial guesses if needed
     List<double> optimizedFractions = [];
     bool success = false;
     String errorMessage = "";
 
+    // Maximum number of attempts with different initial guesses
     const int maxAttempts = 5;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         if (attempt > 0) {
+          // Generate a new random initial guess for this attempt
           initialGuess = List.generate(
             selectedList.length,
             (_) => random.nextDouble(),
@@ -1135,18 +905,21 @@ class _SolverPageState extends State<SolverPage> {
                   .map((f) => f / sum * (1.0 - totalSolventFraction))
                   .toList();
 
+          // For later attempts, also vary the target ratios
           if (attempt >= 3) {
             targetRatios = List.generate(
               selectedList.length - 1,
-              (_) => 0.7 + 0.6 * random.nextDouble(),
+              (_) => 0.7 + 0.6 * random.nextDouble(), // Wider range: 0.7-1.3
             );
           }
 
+          // Update progress indicator
           setState(() {
             progressValue = attempt / maxAttempts;
           });
         }
 
+        // Attempt Newton-Raphson with this initial guess and target ratios
         optimizedFractions = solveForCustomOdorValuesWithInitialGuess(
           selectedList,
           totalSolventFraction,
@@ -1154,11 +927,13 @@ class _SolverPageState extends State<SolverPage> {
           targetRatios,
         );
 
+        // If we get here without an exception, it worked
         success = true;
         break;
       } catch (e) {
         errorMessage = e.toString();
         print("Attempt $attempt failed: $errorMessage");
+        // Continue to next attempt with a new initial guess
       }
     }
 
@@ -1171,91 +946,85 @@ class _SolverPageState extends State<SolverPage> {
       return;
     }
 
-    // ✅ PERBAIKAN: Recalculate dengan pembagian yang jelas antara fragrance dan solvent
+    // Now recalculate all the values based on the optimized fractions
     List<double> totalFractions = [
-      ...optimizedFractions, // Fragrance compounds
-      ...solventRatios.map(
-        (ratio) => ratio * totalSolventFraction,
-      ), // Solvent compounds
+      ...optimizedFractions,
+      ...solventRatios.map((ratio) => ratio * totalSolventFraction),
     ];
 
-    List<Compound> totalCompounds = [
-      ...selectedList,
-      ...solvents,
-    ]; // Fragrance + Solvent
+    List<Compound> totalCompounds = [...selectedList, ...solvents];
 
     List<double> gammas = calculateImprovedUnifacCoefficients(
       totalCompounds,
       totalFractions,
     );
-
-    // ✅ PERBAIKAN: Hitung OV hanya untuk fragrance compounds
     List<double> ov = calculateOdorValues(
-      selectedList, // Hanya fragrance compounds
-      optimizedFractions, // Hanya fragrance fractions
-      gammas.sublist(0, selectedList.length), // Hanya fragrance gammas
+      selectedList,
+      optimizedFractions,
+      gammas.sublist(0, selectedList.length),
     );
 
-    // ✅ PERBAIKAN: Update result dengan pembagian yang jelas
-    String newResult = "PERFUME SOLUTION DETAILS:\n";
+    // Calculate standard deviation to check how well we met our target ratios
+    double firstOV = ov[0];
+    List<double> actualRatios = ov.sublist(1).map((v) => v / firstOV).toList();
+    List<double> ratioDiffs = List.generate(
+      targetRatios.length,
+      (i) => (actualRatios[i] - targetRatios[i]).abs(),
+    );
+    double avgRatioDiff =
+        ratioDiffs.reduce((a, b) => a + b) / ratioDiffs.length;
+
+    // Update result string with comprehensive information
+    String newResult =
+        "PERFUME SOLUTION DETAILS (Modified Newton-Raphson Method):\n";
     newResult += "\n=== MOLE FRACTIONS ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult +=
           "${selectedList[i].name}: ${optimizedFractions[i].toStringAsFixed(4)}\n";
     }
 
-    newResult += "\n=== SOLVENT COMPOUNDS - MOLE FRACTIONS ===\n";
+    // Show solvent fractions
     for (int i = 0; i < solvents.length; i++) {
       newResult +=
           "${solvents[i].name}: ${(solventRatios[i] * totalSolventFraction).toStringAsFixed(4)}\n";
     }
 
-    newResult += "\n=== COMPOUNDS - ACTIVITY COEFFICIENTS ===\n";
+    newResult += "\n=== ACTIVITY COEFFICIENTS ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult += "${selectedList[i].name}: ${gammas[i].toStringAsFixed(4)}\n";
     }
 
-    newResult += "\n=== SOLVENT COMPOUNDS - ACTIVITY COEFFICIENTS ===\n";
+    // Show solvent activity coefficients
     for (int i = 0; i < solvents.length; i++) {
       newResult +=
           "${solvents[i].name}: ${gammas[selectedList.length + i].toStringAsFixed(4)}\n";
     }
 
-    newResult += "\n=== COMPOUNDS - ODOR VALUES ===\n";
+    newResult += "\n=== ODOR VALUES ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult += "${selectedList[i].name}: ${ov[i].toStringAsFixed(4)}\n";
     }
 
-    // ✅ PERBAIKAN: Hitung dan tampilkan OV untuk semua pelarut
-    newResult += "\n=== SOLVENT COMPOUNDS - ODOR VALUES ===\n";
+    // Calculate and show solvent odor values
+    newResult += "\n=== SOLVENT ODOR VALUES ===\n";
+    List<double> solventOVs = [];
+
     for (int i = 0; i < solvents.length; i++) {
       double solventOV = calculateSolventOV(
         solvents[i],
         solventRatios[i] * totalSolventFraction,
-        selectedList, // Fragrance compounds
-        optimizedFractions, // Fragrance fractions
+        selectedList,
+        optimizedFractions,
       );
+      solventOVs.add(solventOV);
       newResult += "${solvents[i].name}: ${solventOV.toStringAsFixed(6)}\n";
     }
-
-    // ✅ PERBAIKAN: Validasi requirement dengan pembagian yang jelas
-    checkOdorValueRequirement(totalCompounds, [
-      ...ov,
-      ...List.generate(
-        solvents.length,
-        (i) => calculateSolventOV(
-          solvents[i],
-          solventRatios[i] * totalSolventFraction,
-          selectedList,
-          optimizedFractions,
-        ),
-      ),
-    ]);
 
     setState(() {
       result = newResult;
       isLoading = false;
     });
+    return;
   }
 
   double calculateSolventOV(
@@ -1295,22 +1064,15 @@ class _SolverPageState extends State<SolverPage> {
     // Hitung fraksi uap pelarut
     double yi = partialPressures.last / Ptotal;
 
-    // ✅ PERBAIKAN: Gunakan threshold asli tanpa modifikasi
+    // Gunakan threshold yang benar
     double threshold = solvent.Thr;
     if (threshold <= 0 || threshold.isNaN || threshold.isInfinite) {
-      threshold = 1e-6; // Gunakan nilai kecil untuk threshold tidak valid
+      threshold = 1.0;
     }
-    // TIDAK mengubah threshold yang sudah valid
 
-    // Hitung OV tanpa pembatasan artificial
+    // Hitung OV
     double ov = (yi * solvent.MW * Ptotal) / (R * T * threshold);
-
-    // Hanya pastikan nilai finite, TIDAK batasi dengan nilai maksimum
-    if (!isFinite(ov) || ov < 0) {
-      ov = 1e-6; // Nilai minimal untuk stabilitas numerik
-    }
-
-    return ov;
+    return isFinite(ov) ? ov : 0.0;
   }
 
   void debugOVCalculation(
