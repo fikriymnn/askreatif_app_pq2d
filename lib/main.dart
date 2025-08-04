@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:askreatif_app/group_params.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/services.dart';
 
 import 'amn_selected_groups.dart';
 
@@ -312,6 +313,22 @@ Map<SolventOption, String> solventNames = {
   SolventOption.dpg: "DPG",
 };
 
+class CompositionResult {
+  final List<double> moleFractions;
+  final List<double> massCompositions;
+  final List<double> grams;
+  final double totalMass;
+  final List<String> compoundNames;
+
+  CompositionResult({
+    required this.moleFractions,
+    required this.massCompositions,
+    required this.grams,
+    required this.totalMass,
+    required this.compoundNames,
+  });
+}
+
 class SolverPage extends StatefulWidget {
   @override
   _SolverPageState createState() => _SolverPageState();
@@ -320,6 +337,9 @@ class SolverPage extends StatefulWidget {
 class _SolverPageState extends State<SolverPage> {
   bool isLoading = false;
   double progressValue = 0.0;
+  TextEditingController volumeController = TextEditingController(text: '30');
+  double selectedVolume = 30.0; // mL - akan diupdate dari text input
+  double perfumeConcentration = 15.0; // jP dari MATLAB (15% default)
 
   List<String> selectedCompounds = [
     "Geraniol",
@@ -343,6 +363,22 @@ class _SolverPageState extends State<SolverPage> {
   void initState() {
     super.initState();
     generateRandomFractions();
+
+    // TAMBAHKAN LISTENER UNTUK TEXT CONTROLLER
+    volumeController.addListener(() {
+      double? newVolume = double.tryParse(volumeController.text);
+      if (newVolume != null && newVolume > 0) {
+        setState(() {
+          selectedVolume = newVolume;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    volumeController.dispose();
+    super.dispose();
   }
 
   void generateRandomFractions() {
@@ -876,11 +912,10 @@ class _SolverPageState extends State<SolverPage> {
             .map((f) => f / sum * (1.0 - totalSolventFraction))
             .toList();
 
-    // Generate random target ratios instead of equal odor values
-    // These ratios determine the relative odor strengths between compounds
+    // Generate random target ratios
     List<double> targetRatios = List.generate(
       selectedList.length - 1,
-      (_) => 0.8 + 0.4 * random.nextDouble(), // Ratios between 0.8 and 1.2
+      (_) => 0.8 + 0.4 * random.nextDouble(),
     );
 
     // Try Newton-Raphson with multiple initial guesses if needed
@@ -888,13 +923,11 @@ class _SolverPageState extends State<SolverPage> {
     bool success = false;
     String errorMessage = "";
 
-    // Maximum number of attempts with different initial guesses
     const int maxAttempts = 5;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         if (attempt > 0) {
-          // Generate a new random initial guess for this attempt
           initialGuess = List.generate(
             selectedList.length,
             (_) => random.nextDouble(),
@@ -905,21 +938,18 @@ class _SolverPageState extends State<SolverPage> {
                   .map((f) => f / sum * (1.0 - totalSolventFraction))
                   .toList();
 
-          // For later attempts, also vary the target ratios
           if (attempt >= 3) {
             targetRatios = List.generate(
               selectedList.length - 1,
-              (_) => 0.7 + 0.6 * random.nextDouble(), // Wider range: 0.7-1.3
+              (_) => 0.7 + 0.6 * random.nextDouble(),
             );
           }
 
-          // Update progress indicator
           setState(() {
             progressValue = attempt / maxAttempts;
           });
         }
 
-        // Attempt Newton-Raphson with this initial guess and target ratios
         optimizedFractions = solveForCustomOdorValuesWithInitialGuess(
           selectedList,
           totalSolventFraction,
@@ -927,13 +957,11 @@ class _SolverPageState extends State<SolverPage> {
           targetRatios,
         );
 
-        // If we get here without an exception, it worked
         success = true;
         break;
       } catch (e) {
         errorMessage = e.toString();
         print("Attempt $attempt failed: $errorMessage");
-        // Continue to next attempt with a new initial guess
       }
     }
 
@@ -945,6 +973,9 @@ class _SolverPageState extends State<SolverPage> {
       });
       return;
     }
+
+    // Update the fractions variable for composition calculation
+    fractions = optimizedFractions;
 
     // Now recalculate all the values based on the optimized fractions
     List<double> totalFractions = [
@@ -964,6 +995,11 @@ class _SolverPageState extends State<SolverPage> {
       gammas.sublist(0, selectedList.length),
     );
 
+    // ============ TAMBAHKAN PERHITUNGAN KOMPOSISI MASSA DI SINI ============
+
+    // Calculate composition and mass using MATLAB formulas
+    CompositionResult compositionResult = calculateMassComposition();
+
     // Calculate standard deviation to check how well we met our target ratios
     double firstOV = ov[0];
     List<double> actualRatios = ov.sublist(1).map((v) => v / firstOV).toList();
@@ -974,10 +1010,14 @@ class _SolverPageState extends State<SolverPage> {
     double avgRatioDiff =
         ratioDiffs.reduce((a, b) => a + b) / ratioDiffs.length;
 
-    // Update result string with comprehensive information
-    String newResult =
-        "PERFUME SOLUTION DETAILS (Modified Newton-Raphson Method):\n";
-    newResult += "\n=== MOLE FRACTIONS ===\n";
+    // ============ UPDATE RESULT STRING DENGAN KEDUA HASIL ============
+
+    String newResult = "PERFUME CALCULATION RESULTS (Complete Analysis):\n";
+    newResult += "Volume: ${selectedVolume.toStringAsFixed(0)} mL\n";
+    newResult +=
+        "Concentration (jP): ${perfumeConcentration.toStringAsFixed(1)}%\n\n";
+
+    newResult += "=== OPTIMIZED MOLE FRACTIONS ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult +=
           "${selectedList[i].name}: ${optimizedFractions[i].toStringAsFixed(4)}\n";
@@ -1000,7 +1040,7 @@ class _SolverPageState extends State<SolverPage> {
           "${solvents[i].name}: ${gammas[selectedList.length + i].toStringAsFixed(4)}\n";
     }
 
-    newResult += "\n=== ODOR VALUES ===\n";
+    newResult += "\n=== ODOR VALUES (OV) ===\n";
     for (int i = 0; i < selectedList.length; i++) {
       newResult += "${selectedList[i].name}: ${ov[i].toStringAsFixed(4)}\n";
     }
@@ -1019,6 +1059,43 @@ class _SolverPageState extends State<SolverPage> {
       solventOVs.add(solventOV);
       newResult += "${solvents[i].name}: ${solventOV.toStringAsFixed(6)}\n";
     }
+
+    // ============ TAMBAHKAN HASIL KOMPOSISI MASSA ============
+
+    newResult += "\n" + "=" * 50 + "\n";
+    newResult += "MASS COMPOSITION CALCULATIONS\n";
+    newResult += "=" * 50 + "\n";
+
+    newResult += "\n=== MASS COMPOSITIONS (x * MW) ===\n";
+    for (int i = 0; i < compositionResult.compoundNames.length; i++) {
+      newResult +=
+          "${compositionResult.compoundNames[i]}: ${compositionResult.massCompositions[i].toStringAsFixed(4)}\n";
+    }
+
+    double totalMassComposition = compositionResult.massCompositions.reduce(
+      (a, b) => a + b,
+    );
+    double jP = perfumeConcentration / 100.0;
+    double za = totalMassComposition / (jP * selectedVolume);
+
+    newResult +=
+        "\nTotal Mass Composition: ${totalMassComposition.toStringAsFixed(4)}\n";
+    newResult +=
+        "jP (Perfume Concentration): ${perfumeConcentration.toStringAsFixed(1)}%\n";
+    newResult += "Volume: ${selectedVolume.toStringAsFixed(0)} mL\n";
+    newResult += "za Factor: ${za.toStringAsFixed(4)}\n";
+
+    newResult +=
+        "\n=== GRAMS NEEDED FOR ${selectedVolume.toStringAsFixed(0)}mL PERFUME ===\n";
+    for (int i = 0; i < compositionResult.compoundNames.length; i++) {
+      newResult +=
+          "${compositionResult.compoundNames[i]}: ${compositionResult.grams[i].toStringAsFixed(4)} g\n";
+    }
+
+    newResult +=
+        "\nTotal Mass: ${compositionResult.totalMass.toStringAsFixed(4)} g\n";
+    newResult +=
+        "Absolute Mass (for ${perfumeConcentration.toStringAsFixed(1)}%): ${(compositionResult.totalMass * jP).toStringAsFixed(4)} g\n";
 
     setState(() {
       result = newResult;
@@ -1092,6 +1169,85 @@ class _SolverPageState extends State<SolverPage> {
         print("  OV: ${odorValues[i].toStringAsFixed(6)}");
       }
     }
+  }
+
+  CompositionResult calculateMassComposition() {
+    List<Compound> selectedList =
+        selectedCompounds
+            .map((name) => compounds.firstWhere((c) => c.name == name))
+            .toList();
+
+    // Get solvent compound(s) based on selection
+    List<Compound> solvents = [];
+    List<double> solventRatios = [];
+    List<String> solventNames = [];
+
+    switch (selectedSolvent) {
+      case SolventOption.waterEthanol:
+        solvents = [
+          compounds.firstWhere((c) => c.name == "Ethanol"),
+          compounds.firstWhere((c) => c.name == "Water"),
+        ];
+        solventRatios = [ethanolRatio, waterRatio];
+        solventNames = ["Ethanol", "Water"];
+        break;
+      case SolventOption.water:
+        solvents = [compounds.firstWhere((c) => c.name == "Water")];
+        solventRatios = [1.0];
+        solventNames = ["Water"];
+        break;
+      case SolventOption.ethanol:
+        solvents = [compounds.firstWhere((c) => c.name == "Ethanol")];
+        solventRatios = [1.0];
+        solventNames = ["Ethanol"];
+        break;
+      case SolventOption.dpg:
+        solvents = [compounds.firstWhere((c) => c.name == "DPG")];
+        solventRatios = [1.0];
+        solventNames = ["DPG"];
+        break;
+    }
+
+    // Combine all compounds
+    List<Compound> allCompounds = [...selectedList, ...solvents];
+
+    // Combine fractions (fragrance compounds + solvent)
+    List<double> allFractions = [
+      ...fractions, // fractions yang sudah ada untuk fragrance compounds
+      ...solventRatios.map((ratio) => ratio * totalSolventFraction),
+    ];
+
+    // Get MW from each compound (seperti variabel M di MATLAB)
+    List<double> MW = allCompounds.map((compound) => compound.MW).toList();
+
+    // Hitung komposisi massa: komposisi = x * xT * MW
+    List<double> massCompositions = [];
+    double xT = 1.0; // dari MATLAB
+
+    for (int i = 0; i < allFractions.length; i++) {
+      double composition = allFractions[i] * xT * MW[i];
+      massCompositions.add(composition);
+    }
+
+    double totalMassComposition = massCompositions.reduce((a, b) => a + b);
+
+    // Rumus dari MATLAB: za = totalKomposisi / (jP * mL)
+    double jP = perfumeConcentration / 100.0; // Convert % to decimal
+    double za = totalMassComposition / (jP * selectedVolume);
+
+    // Hitung gram: gram = komposisi / za
+    List<double> grams = massCompositions.map((comp) => comp / za).toList();
+
+    // Combine compound names
+    List<String> allCompoundNames = [...selectedCompounds, ...solventNames];
+
+    return CompositionResult(
+      moleFractions: allFractions,
+      massCompositions: massCompositions,
+      grams: grams,
+      totalMass: grams.reduce((a, b) => a + b),
+      compoundNames: allCompoundNames,
+    );
   }
 
   @override
@@ -1306,6 +1462,8 @@ class _SolverPageState extends State<SolverPage> {
 
               SizedBox(height: 24),
 
+              buildVolumeAndConcentrationControls(),
+
               // Calculate button
               Center(
                 child:
@@ -1330,7 +1488,7 @@ class _SolverPageState extends State<SolverPage> {
                             textStyle: TextStyle(fontSize: 16),
                           ),
                           child: Text(
-                            "Calculate Optimal Odor Values",
+                            "Calculate Complete Analysis (OV + Composition)",
                             style: TextStyle(color: Colors.white),
                           ),
                         ),
@@ -1351,16 +1509,23 @@ class _SolverPageState extends State<SolverPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "POS Optimization Results",
+                          "Complete Perfume Analysis Results",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
+                            color: Colors.purple[800],
                           ),
                         ),
                         Divider(),
-                        Text(
-                          result,
-                          style: TextStyle(fontFamily: 'Courier', fontSize: 14),
+                        Container(
+                          width: MediaQuery.of(context).size.width,
+                          child: Text(
+                            result,
+                            style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1373,5 +1538,254 @@ class _SolverPageState extends State<SolverPage> {
         ),
       ),
     );
+  }
+
+  Widget buildVolumeAndConcentrationControls() {
+    return Card(
+      elevation: 4,
+      margin: EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Volume & Concentration Settings",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Divider(),
+
+            // Volume Input (Text Field)
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Volume Parfum (mL):",
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      SizedBox(height: 8),
+                      TextField(
+                        controller: volumeController,
+                        keyboardType: TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d*'),
+                          ),
+                        ],
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: '30',
+                          suffixText: 'mL',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          double? newVolume = double.tryParse(value);
+                          if (newVolume != null && newVolume > 0) {
+                            setState(() {
+                              selectedVolume = newVolume;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.local_drink, color: Colors.blue[600]),
+                        SizedBox(height: 4),
+                        Text(
+                          "${selectedVolume.toStringAsFixed(0)} mL",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            SizedBox(height: 20),
+
+            // Concentration Slider (jP from MATLAB)
+            Text(
+              "Konsentrasi Parfum (jP): ${perfumeConcentration.toStringAsFixed(1)}%",
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            SizedBox(height: 8),
+
+            // Slider dengan indikator visual
+            Column(
+              children: [
+                Slider(
+                  value: perfumeConcentration,
+                  min: 5.0,
+                  max: 30.0,
+                  divisions: 25,
+                  label: "${perfumeConcentration.toStringAsFixed(1)}%",
+                  activeColor: Colors.purple[600],
+                  inactiveColor: Colors.purple[100],
+                  onChanged: (value) {
+                    setState(() {
+                      perfumeConcentration = value;
+                    });
+                  },
+                ),
+
+                SizedBox(height: 8),
+
+                // Kategori parfum berdasarkan konsentrasi
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _getPerfumeTypeColor().withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _getPerfumeTypeColor().withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getPerfumeTypeIcon(),
+                        size: 16,
+                        color: _getPerfumeTypeColor(),
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        _getPerfumeTypeName(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: _getPerfumeTypeColor(),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            SizedBox(height: 12),
+
+            // Info tambahan
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Informasi:",
+                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "• jP menentukan konsentrasi parfum dalam produk akhir\n"
+                    "• Volume mempengaruhi total massa yang dibutuhkan\n"
+                    "• Rumus: za = totalKomposisi / (jP × mL)",
+                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getPerfumeTypeColor() {
+    if (perfumeConcentration <= 8) {
+      return Colors.lightBlue;
+    } else if (perfumeConcentration <= 15) {
+      return Colors.green;
+    } else if (perfumeConcentration <= 20) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
+  }
+
+  IconData _getPerfumeTypeIcon() {
+    if (perfumeConcentration <= 8) {
+      return Icons.water_drop_outlined;
+    } else if (perfumeConcentration <= 15) {
+      return Icons.local_florist;
+    } else if (perfumeConcentration <= 20) {
+      return Icons.star;
+    } else {
+      return Icons.diamond;
+    }
+  }
+
+  String _getPerfumeTypeName() {
+    if (perfumeConcentration <= 8) {
+      return "Eau de Cologne (5-8%)";
+    } else if (perfumeConcentration <= 15) {
+      return "Eau de Parfum (8-15%)";
+    } else if (perfumeConcentration <= 20) {
+      return "Parfum de Toilette (15-20%)";
+    } else {
+      return "Pure Parfum (20-30%)";
+    }
+  }
+
+  // ============ TAMBAHKAN VALIDATION UNTUK VOLUME INPUT ============
+
+  bool _isVolumeValid() {
+    return selectedVolume > 0 && selectedVolume <= 1000; // Max 1 liter
+  }
+
+  Widget _buildVolumeValidationMessage() {
+    if (!_isVolumeValid()) {
+      return Container(
+        margin: EdgeInsets.only(top: 8),
+        padding: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.red[50],
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.red[300]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning, size: 16, color: Colors.red[600]),
+            SizedBox(width: 6),
+            Text(
+              "Volume harus antara 1-1000 mL",
+              style: TextStyle(fontSize: 12, color: Colors.red[600]),
+            ),
+          ],
+        ),
+      );
+    }
+    return SizedBox.shrink();
   }
 }
