@@ -106,11 +106,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.purple[900]!,
-              Colors.purple[700]!,
-              Colors.purple[500]!,
-            ],
+            colors: [Color(0xfff184737), Color(0xff1F5C47), Color(0xff27745A)],
           ),
         ),
         child: SafeArea(
@@ -141,23 +137,21 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Colors.purple[600]!,
-                                    Colors.purple[400]!,
+                                    Color(0xfff184737),
+                                    Color(0xfff184737),
                                   ],
                                 ),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.purple[300]!.withOpacity(0.3),
+                                    color: Color(0xfff184737).withOpacity(0.3),
                                     blurRadius: 15,
                                     offset: Offset(0, 5),
                                   ),
                                 ],
-                              ),
-                              child: Icon(
-                                Icons.local_florist,
-                                size: 40,
-                                color: Colors.white,
+                                image: DecorationImage(
+                                  image: AssetImage('assets/asklogo2.png'),
+                                ),
                               ),
                             ),
 
@@ -165,18 +159,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
                             // Title
                             Text(
-                              'POS Perfume Calculator',
+                              'ASKreatif POS',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.purple[800],
+                                color: Color(0xfff184737),
                               ),
                             ),
 
                             SizedBox(height: 8),
 
                             Text(
-                              'Perfumery Octonary System',
+                              'ASKreatif Perfumery Octonary System',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey[600],
@@ -193,7 +187,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 labelText: 'Username',
                                 prefixIcon: Icon(
                                   Icons.person,
-                                  color: Colors.purple[600],
+                                  color: Color(0xfff184737),
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -201,7 +195,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.purple[600]!,
+                                    color: Color(0xfff184737),
                                     width: 2,
                                   ),
                                 ),
@@ -226,14 +220,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 labelText: 'Password',
                                 prefixIcon: Icon(
                                   Icons.lock,
-                                  color: Colors.purple[600],
+                                  color: Color(0xfff184737),
                                 ),
                                 suffixIcon: IconButton(
                                   icon: Icon(
                                     _passwordVisible
                                         ? Icons.visibility
                                         : Icons.visibility_off,
-                                    color: Colors.purple[600],
+                                    color: Color(0xfff184737),
                                   ),
                                   onPressed: () {
                                     setState(() {
@@ -247,7 +241,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.purple[600]!,
+                                    color: Color(0xfff184737),
                                     width: 2,
                                   ),
                                 ),
@@ -303,7 +297,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _login,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.purple[600],
+                                  backgroundColor: Color(0xfff184737),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),

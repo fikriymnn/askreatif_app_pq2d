@@ -1272,7 +1272,7 @@ class _SolverPageState extends State<SolverPage> {
           "Perfumery Octonary System",
           style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.purple[800],
+        backgroundColor: Color(0xfff184737),
         automaticallyImplyLeading: false,
         actions: [
           // User info
@@ -1523,7 +1523,7 @@ class _SolverPageState extends State<SolverPage> {
                               horizontal: 32,
                               vertical: 12,
                             ),
-                            backgroundColor: Colors.purple[700],
+                            backgroundColor: Color(0xfff184737),
                             textStyle: TextStyle(fontSize: 16),
                           ),
                           child: Text(
@@ -1552,7 +1552,7 @@ class _SolverPageState extends State<SolverPage> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
-                            color: Colors.purple[800],
+                            color: Color(0xfff184737),
                           ),
                         ),
                         Divider(),
@@ -1684,8 +1684,8 @@ class _SolverPageState extends State<SolverPage> {
                   max: 30.0,
                   divisions: 25,
                   label: "${perfumeConcentration.toStringAsFixed(1)}%",
-                  activeColor: Colors.purple[600],
-                  inactiveColor: Colors.purple[100],
+                  activeColor: Color(0xfff184737),
+                  inactiveColor: Colors.green[900],
                   onChanged: (value) {
                     setState(() {
                       perfumeConcentration = value;
