@@ -848,7 +848,37 @@ class _SolverPageState extends State<SolverPage> {
     }
   }
 
+  void generateFixedNoteFractions() {
+    fractions = generateFixedNoteRatioInitialGuess(1.0 - totalSolventFraction);
+  }
+
+  bool hasDuplicateCompounds() {
+    return selectedCompounds.toSet().length != selectedCompounds.length;
+  }
+
+  List<double> generateFixedNoteRatioInitialGuess(
+    double totalFragranceFraction,
+  ) {
+    // Total 6 senyawa: 3 pasang top, middle, base (masing-masing 2)
+    // Rasio per pasang: 0.55 : 0.45
+    double perNote = totalFragranceFraction / 3.0;
+    return [
+      0.55 * perNote, // Top major (misal Benzyl Acetate)
+      0.45 * perNote, // Top minor (Romandolide)
+      0.55 * perNote, // Mid major (Geraniol)
+      0.45 * perNote, // Mid minor (Cashmeran)
+      0.55 * perNote, // Base major (Vanillin)
+      0.45 * perNote, // Base minor (Javanol)
+    ];
+  }
+
   void solveEquations() async {
+    if (hasDuplicateCompounds()) {
+      setState(() {
+        result = "❌ Error: Pilihan senyawa tidak boleh duplikat.";
+      });
+      return;
+    }
     setState(() {
       isLoading = true;
       progressValue = 0.0;
@@ -859,7 +889,6 @@ class _SolverPageState extends State<SolverPage> {
             .map((name) => compounds.firstWhere((c) => c.name == name))
             .toList();
 
-    // Get solvent compound(s) based on selection
     List<Compound> solvents = [];
     List<double> solventRatios = [];
 
