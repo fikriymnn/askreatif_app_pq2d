@@ -1,4 +1,3 @@
-import 'package:askreatif_app/SolverPage.dart';
 import 'package:askreatif_app/welcomePage.dart';
 import 'package:flutter/material.dart';
 

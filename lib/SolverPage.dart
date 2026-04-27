@@ -6,7 +6,6 @@ import 'package:askreatif_app/classifyNote.dart';
 import 'package:askreatif_app/colorTheme.dart';
 import 'package:askreatif_app/group_params.dart';
 import 'package:drop_down_search_field/drop_down_search_field.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class SolverPage extends StatefulWidget {
