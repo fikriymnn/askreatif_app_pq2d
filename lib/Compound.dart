@@ -54,15 +54,15 @@ final List<Compound> compounds = [
   Compound(
     name: "Benzyl Acetate",
     MW: 150.18,
-    Psat: 21.86,
-    Thr: 0.000332,
+    Psat: 0.219e2,
+    Thr: 1.66e-3,
     groups: {"ACH": 5, "ACCH2": 1, "CH3COO": 1},
   ),
   Compound(
     name: "Vanillin",
     MW: 152.2,
     Psat: 0.016,
-    Thr: 0.000000187,
+    Thr: 1.87e-7,
     groups: {"ACH": 3, "AC": 2, "ACOH": 1, "CHO": 1, "CH3O": 1},
   ),
   Compound(
@@ -152,10 +152,10 @@ final List<Compound> compounds = [
   ),
   Compound(
     name: "Limonene",
-    MW: 174.2,
-    Psat: 2.05,
-    Thr: 0.00245,
-    groups: {"CH3": 2, "CH2": 3, "CH": 1, "C": 1, "CH2=C": 1, "CH=C": 1},
+    MW: 136.23,
+    Psat: 2e2,
+    Thr: 5.57e-5,
+    groups: {"CH3": 2, "CH2": 3, "CH": 1, "CH2=C": 1, "CH=C": 1},
   ),
   Compound(
     name: "Frukton",
@@ -275,6 +275,27 @@ final List<Compound> compounds = [
     Psat: 7.27e-2,
     Thr: 9e-7,
     groups: {"CH3": 6, "CH": 2, "C": 2, "ACH": 2, "AC": 4, "CH2O": 1},
+  ),
+  Compound(
+    name: "Linalool",
+    MW: 154.25,
+    Psat: 0.21e2,
+    Thr: 3.78e-5,
+    groups: {"CH3": 3, "CH2": 2, "C": 1, "CH2=CH": 1, "CH=C": 1, "OH": 1},
+  ),
+  Compound(
+    name: "Patchouli Alcohol",
+    MW: 222.36,
+    Psat: 37e-3,
+    Thr: 1.27e-9,
+    groups: {"CH3": 4, "CH2": 6, "CH": 2, "C": 3, "OH": 1},
+  ),
+  Compound(
+    name: "Cedryl Acetate",
+    MW: 264.41,
+    Psat: 29.33e-2,
+    Thr: 1.67e-7,
+    groups: {"CH3": 4, "CH2": 5, "CH": 3, "C": 3, "CH3COO": 1},
   ),
   Compound(name: "Water", MW: 18.15, Psat: 0.317, Thr: 10, groups: {"H2O": 1}),
   Compound(

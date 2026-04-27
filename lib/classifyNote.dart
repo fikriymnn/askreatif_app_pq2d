@@ -25,24 +25,67 @@ class _T {
 }
 
 Map<String, List<int>> groupNoteIndices(List<Compound> comps) {
-  List<int> sortedIndices = List.generate(comps.length, (i) => i);
-  sortedIndices.sort((a, b) => comps[b].Psat.compareTo(comps[a].Psat));
-
-  final int n = sortedIndices.length;
-  int topCount = (n / 3).ceil();
-  int baseCount = (n / 3).floor();
-  int middleCount = n - topCount - baseCount;
-
+  // === TAHAP 1: Klasifikasi berdasarkan Psat standar industri ===
   Map<String, List<int>> groups = {"Top": [], "Middle": [], "Base": []};
 
-  for (int rank = 0; rank < n; rank++) {
-    int idx = sortedIndices[rank];
-    if (rank < topCount)
-      groups["Top"]!.add(idx);
-    else if (rank < topCount + middleCount)
-      groups["Middle"]!.add(idx);
-    else
-      groups["Base"]!.add(idx);
+  for (int i = 0; i < comps.length; i++) {
+    double psat = comps[i].Psat;
+    if (psat > 1.0) {
+      groups["Top"]!.add(i);
+    } else if (psat > 0.01) {
+      groups["Middle"]!.add(i);
+    } else {
+      groups["Base"]!.add(i);
+    }
+  }
+
+  // === TAHAP 2: Fallback jika ada group yang kosong ===
+  // Urutkan semua index berdasarkan Psat descending
+  List<int> sortedByPsat = List.generate(comps.length, (i) => i);
+  sortedByPsat.sort((a, b) => comps[b].Psat.compareTo(comps[a].Psat));
+
+  // Jika Top kosong → ambil senyawa dengan Psat tertinggi
+  if (groups["Top"]!.isEmpty) {
+    int candidate = sortedByPsat.firstWhere(
+      (i) => !groups["Top"]!.contains(i),
+      orElse: () => sortedByPsat.first,
+    );
+    // Pindahkan dari group lain ke Top
+    groups["Middle"]!.remove(candidate);
+    groups["Base"]!.remove(candidate);
+    groups["Top"]!.add(candidate);
+  }
+
+  // Jika Base kosong → ambil senyawa dengan Psat terendah
+  if (groups["Base"]!.isEmpty) {
+    int candidate = sortedByPsat.lastWhere(
+      (i) => !groups["Base"]!.contains(i),
+      orElse: () => sortedByPsat.last,
+    );
+    groups["Middle"]!.remove(candidate);
+    groups["Top"]!.remove(candidate);
+    groups["Base"]!.add(candidate);
+  }
+
+  // Jika Middle kosong → ambil dari group terbesar (yang punya > 1 senyawa)
+  if (groups["Middle"]!.isEmpty) {
+    // Cari group dengan senyawa terbanyak
+    String donorGroup =
+        groups["Top"]!.length >= groups["Base"]!.length ? "Top" : "Base";
+
+    if (groups[donorGroup]!.length > 1) {
+      // Ambil senyawa paling "tengah" dari donor group
+      List<int> donorSorted = List.from(groups[donorGroup]!);
+      donorSorted.sort((a, b) => comps[b].Psat.compareTo(comps[a].Psat));
+
+      // Dari Top ambil yang Psat-nya paling rendah (paling mendekati Middle)
+      // Dari Base ambil yang Psat-nya paling tinggi (paling mendekati Middle)
+      int candidate =
+          donorGroup == "Top" ? donorSorted.last : donorSorted.first;
+
+      groups[donorGroup]!.remove(candidate);
+      groups["Middle"]!.add(candidate);
+    }
   }
 
   return groups;
