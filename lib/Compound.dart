@@ -1,0 +1,303 @@
+class Compound {
+  final String name;
+  final double MW;
+  final double Psat;
+  final double Thr;
+  final Map<String, int> groups;
+
+  Compound({
+    required this.name,
+    required this.MW,
+    required this.Psat,
+    required this.Thr,
+    required this.groups,
+  });
+}
+
+final List<Compound> compounds = [
+  Compound(
+    name: "Geraniol",
+    MW: 154.25,
+    Psat: 2.67, // Using values closer to MATLAB
+    Thr: 0.0000248,
+    groups: {"CH3": 3, "CH2": 3, "CH=C": 2, "OH": 1},
+  ),
+  Compound(
+    name: "Romandolide",
+    MW: 270.36,
+    Psat: 0.1,
+    Thr: 0.00004,
+    groups: {
+      "CH3": 3,
+      "CH2": 4,
+      "CH": 1,
+      "C": 1,
+      "CH3CO": 1,
+      "CH2CO": 1,
+      "CH3COO": 1,
+    },
+  ),
+  Compound(
+    name: "Cashmeran",
+    MW: 206.32,
+    Psat: 1.24,
+    Thr: 0.00001,
+    groups: {"CH3": 5, "CH2": 2, "CH": 1, "C": 2, "C=C": 1, "CH2CO": 1},
+  ),
+  Compound(
+    name: "Javanol",
+    MW: 222.37,
+    Psat: 0.03,
+    Thr: 0.00000002,
+    groups: {"CH3": 4, "CH2": 5, "CH": 3, "C": 3, "OH": 1},
+  ),
+  Compound(
+    name: "Benzyl Acetate",
+    MW: 150.18,
+    Psat: 21.86,
+    Thr: 0.000332,
+    groups: {"ACH": 5, "ACCH2": 1, "CH3COO": 1},
+  ),
+  Compound(
+    name: "Vanillin",
+    MW: 152.2,
+    Psat: 0.016,
+    Thr: 0.000000187,
+    groups: {"ACH": 3, "AC": 2, "ACOH": 1, "CHO": 1, "CH3O": 1},
+  ),
+  Compound(
+    name: "CIS-6-NONEAL",
+    MW: 140.23,
+    Psat: 60, // Using values closer to MATLAB
+    Thr: 2e-11,
+    groups: {"CH3": 3, "CH2": 5, "CH=CH": 1, "CHO": 1},
+  ),
+  Compound(
+    name: "Iso E Super",
+    MW: 234.38,
+    Psat: 0.231,
+    Thr: 0.00000093,
+    groups: {"CH3": 5, "CH2": 2, "CH": 1, "C": 2, "C=C": 1, "CH3CO": 1},
+  ),
+  Compound(
+    name: "Isoamyl Acetate",
+    MW: 130.19,
+    Psat: 5.33,
+    Thr: 0.002,
+    groups: {"CH3": 2, "CH2": 2, "CH": 1, "CH3COO": 1},
+  ),
+  Compound(
+    name: "Macrolide",
+    MW: 240.39,
+    Psat: 0.08,
+    Thr: 0.001,
+    groups: {"CH3": 3, "CH": 5, "CH=C": 2, "OH": 2, "CH2COO": 1, "COO": 2},
+  ),
+  Compound(
+    name: "Benzaldehyde",
+    MW: 164.2,
+    Psat: 0.8,
+    Thr: 0.042,
+    groups: {"ACH": 5, "AC": 2, "CHO": 1},
+  ),
+  Compound(
+    name: "Eugenol",
+    MW: 158.24,
+    Psat: 0.00985,
+    Thr: 0.011,
+    groups: {"ACH": 3, "AC": 2, "ACCH2": 1, "ACOH": 1, "OCH3": 1, "CH=CH2": 1},
+  ),
+  Compound(
+    name: "Oenanthic Ether",
+    MW: 142.2,
+    Psat: 0.0427,
+    Thr: 0.002,
+    groups: {"CH3": 2, "CH2": 5, "CH2COO": 1},
+  ),
+  Compound(
+    name: "Cis-3-Hexenyl Acetate",
+    MW: 184.32,
+    Psat: 2.14,
+    Thr: 0.000015,
+    groups: {"CH3": 1, "CH2": 3, "CH=CH": 1, "CH3COO": 1},
+  ),
+  Compound(
+    name: "Dodecanal",
+    MW: 194,
+    Psat: 1.99,
+    Thr: 0.0005,
+    groups: {"CH3": 1, "CH2": 3, "CH": 1},
+  ),
+  Compound(
+    name: "Sandalmysore Core",
+    MW: 194.31,
+    Psat: 0.128,
+    Thr: 0.051,
+    groups: {"CH3": 4, "CH2": 2, "CH": 1, "C": 1, "CH=C": 2, "OH": 1},
+  ),
+  Compound(
+    name: "a- ionone",
+    MW: 136.2,
+    Psat: 1.8,
+    Thr: 0.00003,
+    groups: {
+      "CH3": 3,
+      "CH2": 2,
+      "CH": 1,
+      "C": 1,
+      "CH=C": 2,
+      "CH=CH": 1,
+      "CH3CO": 1,
+    },
+  ),
+  Compound(
+    name: "Limonene",
+    MW: 174.2,
+    Psat: 2.05,
+    Thr: 0.00245,
+    groups: {"CH3": 2, "CH2": 3, "CH": 1, "C": 1, "CH2=C": 1, "CH=C": 1},
+  ),
+  Compound(
+    name: "Frukton",
+    MW: 236.40,
+    Psat: 0.181,
+    Thr: 0.00000406,
+    groups: {"CH3": 2, "C": 1, "CH2CO": 1, "CH2O": 1},
+  ),
+  Compound(
+    name: "Ambroxan",
+    MW: 284.44,
+    Psat: 1.25,
+    Thr: 0.0000029,
+    groups: {"CH3": 4, "CH2": 6, "CH": 2, "C": 3, "CH2O": 1},
+  ),
+  Compound(
+    name: "Helvetolida",
+    MW: 154.25,
+    Psat: 1.33,
+    Thr: 0.0000017,
+    groups: {"CH3": 6, "CH2": 5, "CH": 1, "C": 2, "CHO": 1, "CH2COO": 1},
+  ),
+  Compound(
+    name: "Hexyl Acetate",
+    MW: 144.21,
+    Psat: 1.76e-5,
+    Thr: 2e-9,
+    groups: {"CH3": 1, "CH2": 5, "CH3COO": 1},
+  ),
+  Compound(
+    name: "Hedione",
+    MW: 226.31,
+    Psat: 71e-5,
+    Thr: 1.5e-2,
+    groups: {"CH3": 2, "CH2": 6, "CH": 2, "CH2CO": 1, "CH2COO": 1},
+  ),
+  Compound(
+    name: "Nerol",
+    MW: 156.26,
+    Psat: 2.39,
+    Thr: 0.0000006,
+    groups: {"CH3": 3, "CH2": 3, "CH=C": 2, "OH": 1},
+  ),
+  Compound(
+    name: "Citronellol",
+    MW: 172.27,
+    Psat: 8.6,
+    Thr: 0.018,
+    groups: {"CH3": 3, "CH2": 4, "CH=C": 1, "CH": 1, "OH": 1},
+  ),
+  Compound(
+    name: "Octyl Acetate",
+    MW: 172,
+    Psat: 25.86,
+    Thr: 0.00019,
+    groups: {"CH3": 1, "CH2": 7, "CH3COO": 1},
+  ),
+  Compound(
+    name: "Cinnamaldehyde",
+    MW: 196.20,
+    Psat: 3.85,
+    Thr: 0.05,
+    groups: {"ACH": 5, "AC": 1, "CH=CH": 1, "CHO": 1},
+  ),
+  Compound(
+    name: "b-caryophyllenol",
+    MW: 222.37,
+    Psat: 0.2173,
+    Thr: 0.000845,
+    groups: {"CH3": 3, "CH2": 7, "CH": 2, "C": 3, "OH": 1},
+  ),
+  Compound(
+    name: "Coumarin",
+    MW: 132.16,
+    Psat: 1.33,
+    Thr: 0.034,
+    groups: {"ACH": 4, "AC": 2, "CH=CH": 1, "COO": 1},
+  ),
+  Compound(
+    name: "Evernyl",
+    MW: 208.34,
+    Psat: 0.002399,
+    Thr: 0.000000247,
+    groups: {"CH3": 3, "ACH": 1, "AC": 5, "COO": 1, "OH": 2},
+  ),
+  Compound(
+    name: "Bacdanol",
+    MW: 156.26,
+    Psat: 0.142,
+    Thr: 0.00085,
+    groups: {"CH3": 4, "CH2": 4, "CH": 1, "C": 1, "CH=C": 2, "OH": 1},
+  ),
+  Compound(
+    name: "Menthol",
+    MW: 156.27,
+    Psat: 7.99,
+    Thr: 0.0021,
+    groups: {"CH3": 3, "CH2": 3, "CH": 4, "OH": 1},
+  ),
+  Compound(
+    name: "Heptyl Acetate",
+    MW: 158.24,
+    Psat: 0.1599,
+    Thr: 0.00042,
+    groups: {"CH3": 1, "CH2": 6, "CHCOO": 1},
+  ),
+  Compound(
+    name: "Caryophyllene Oxide",
+    MW: 220.35,
+    Psat: 1,
+    Thr: 0.41,
+    groups: {"CH3": 3, "CH2": 5, "C": 3, "CH": 2, "CHO": 1, "CH2=C": 1},
+  ),
+  Compound(
+    name: "Galaxolide",
+    MW: 258.41,
+    Psat: 7.27e-2,
+    Thr: 9e-7,
+    groups: {"CH3": 6, "CH": 2, "C": 2, "ACH": 2, "AC": 4, "CH2O": 1},
+  ),
+  Compound(name: "Water", MW: 18.15, Psat: 0.317, Thr: 10, groups: {"H2O": 1}),
+  Compound(
+    name: "Ethanol",
+    MW: 46.07,
+    Psat: 0.727,
+    Thr: 0.0533,
+    groups: {"CH3": 1, "CH2": 1, "OH": 1},
+  ),
+  Compound(
+    name: "DPG",
+    MW: 76.09,
+    Psat: 0.013,
+    Thr: 0.00143,
+    groups: {"CH3": 2, "CH2": 1, "CH": 2, "OH": 2, "CH2O": 1},
+  ),
+];
+
+enum SolventOption { waterEthanol, water, ethanol, dpg }
+
+Map<SolventOption, String> solventNames = {
+  SolventOption.waterEthanol: "Water + Ethanol",
+  SolventOption.water: "Water",
+  SolventOption.ethanol: "Ethanol",
+  SolventOption.dpg: "DPG",
+};
