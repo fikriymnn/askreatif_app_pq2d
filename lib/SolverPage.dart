@@ -1,11 +1,21 @@
 import 'dart:math';
 
+import 'package:askreatif_app/AccordIntelligence.dart';
+import 'package:askreatif_app/Advanced_Visualization_Widgets.dart';
 import 'package:askreatif_app/Compound.dart';
+import 'package:askreatif_app/Evaporation.dart';
+import 'package:askreatif_app/FormulationEngine.dart';
+import 'package:askreatif_app/ML_data_layer.dart';
+import 'package:askreatif_app/PsychoOdor.dart';
+import 'package:askreatif_app/compound_search_field.dart';
+import 'package:askreatif_app/pw_roi_database.dart';
+import 'package:askreatif_app/pw_roi_integration.dart';
 import 'package:askreatif_app/amn_selected_groups.dart';
 import 'package:askreatif_app/classifyNote.dart';
 import 'package:askreatif_app/colorTheme.dart';
 import 'package:askreatif_app/group_params.dart';
 import 'package:drop_down_search_field/drop_down_search_field.dart';
+import 'ifra_safety.dart';
 import 'package:flutter/material.dart';
 
 class SolverPage extends StatefulWidget {
@@ -37,6 +47,29 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
 
   late List<TextEditingController> _compoundControllers;
 
+  double batchMassGram = 100.0;
+  late TextEditingController _batchController;
+  List<Map<String, dynamic>> _gramComposition = [];
+
+  // ── Phase 1/2: Evaporation trajectory ────────────────────
+  List<EvaporationPoint> _trajectory = [];
+
+  // ── Phase 3: ROI + dynamic notes (at t=0) ────────────────
+  List<PwNoteState> _noteStates = [];
+  List<String> _topAccords = [];
+
+  // ── Phase 4/5: Psychophysical intensities ─────────────────
+  List<double> _blendedIntensities = [];
+
+  // ── Phase 6: Accord scores ────────────────────────────────
+  List<AccordScore> _accordScores = [];
+
+  // ── Phase 9: Safety alerts ────────────────────────────────
+  List<SafetyAlert> _safetyAlerts = [];
+
+  // ── Phase 10: selected time for evolution chart ───────────
+  // (managed inside EvolutionChartWidget itself)
+
   @override
   void initState() {
     super.initState();
@@ -49,16 +82,68 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
       duration: Duration(milliseconds: 300),
       value: 1.0,
     );
+    _batchController = TextEditingController(text: '100');
   }
 
   @override
   void dispose() {
     for (var c in _compoundControllers) c.dispose();
+    _batchController.dispose();
     _sidebarController.dispose();
     super.dispose();
   }
 
   static const double _minFraction = 0.01;
+
+  /// Konversi mole fractions → gram berdasarkan MW
+  /// Menggabungkan fragrance compounds + solvents sekaligus
+  List<Map<String, dynamic>> calculateGramComposition({
+    required List<Compound> fragranceComps,
+    required List<double> fragranceFractions,
+    required List<Compound> solventComps,
+    required List<double> solventRatios,
+    required double totalSolventFraction,
+    required double batchGram,
+  }) {
+    // Gabungkan semua senyawa dan fraksi mol-nya
+    List<Compound> allComps = [...fragranceComps, ...solventComps];
+    List<double> allFractions = [
+      ...fragranceFractions,
+      ...solventRatios.map((r) => r * totalSolventFraction),
+    ];
+
+    // Hitung bobot mol relatif: x_i * MW_i
+    List<double> weightedMW = [];
+    for (int i = 0; i < allComps.length; i++) {
+      weightedMW.add(allFractions[i] * allComps[i].MW);
+    }
+
+    // Total bobot mol untuk normalisasi
+    double totalWeightedMW = weightedMW.reduce((a, b) => a + b);
+    if (totalWeightedMW <= 0) totalWeightedMW = 1.0;
+
+    // Konversi ke gram
+    List<Map<String, dynamic>> result = [];
+    double checkSum = 0.0;
+
+    for (int i = 0; i < allComps.length; i++) {
+      double massGram = (weightedMW[i] / totalWeightedMW) * batchGram;
+      double massFraction = weightedMW[i] / totalWeightedMW;
+      bool isSolvent = solventComps.contains(allComps[i]);
+
+      result.add({
+        'name': allComps[i].name,
+        'moleFraction': allFractions[i],
+        'MW': allComps[i].MW,
+        'massFraction': massFraction,
+        'massGram': massGram,
+        'isSolvent': isSolvent,
+      });
+      checkSum += massGram;
+    }
+
+    return result;
+  }
 
   void generateRandomFractions() {
     final int filled = selectedCompounds.where((c) => c.isNotEmpty).length;
@@ -296,6 +381,13 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
     return isFinite(ov) ? ov : 0.0;
   }
 
+  double _calcOVBalance(List<double> ovSafe) {
+    if (ovSafe.isEmpty) return 0.0;
+    final logOVs = ovSafe.map((v) => log(v)).toList();
+    final mean = logOVs.reduce((a, b) => a + b) / logOVs.length;
+    return logOVs.map((v) => (v - mean).abs()).reduce(max);
+  }
+
   void solveEquations() async {
     final filled = selectedCompounds.where((c) => c.isNotEmpty).toList();
     if (filled.length < 2) {
@@ -507,10 +599,114 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
     _lastSolventOVs = solventOVsList;
 
     setState(() {
-      result = newResult;
+      result = newResult; // ← ADD THIS LINE (was missing)
       isLoading = false;
+      // ── Phase 1+2: Build evaporation trajectory ───────────
+      _trajectory = computeEvaporationTrajectory(
+        compounds: selectedList,
+        x0: optimizedFractions,
+        gammaFn:
+            (xt) => calculateImprovedUnifacCoefficients(
+              [...selectedList, ...solvents],
+              [...xt, ...solventRatios.map((r) => r * totalSolventFraction)],
+            ).sublist(0, selectedList.length),
+      );
+
+      // ── Phase 3: ROI + dynamic note states at t=0 ─────────
+      _noteStates = classifyWithPwData(
+        compounds: selectedList,
+        moleFractions:
+            optimizedFractions, // ← must be same length as selectedList
+        t: 0.0,
+      );
+      _topAccords = topAccordNames(selectedList, optimizedFractions);
+
+      // ── Phase 4+5: Psychophysical intensities ─────────────
+      // Use headspace at t=0 from trajectory
+      final List<double> hsConc =
+          _trajectory.isNotEmpty
+              ? _trajectory.first.headspaceConc
+              : List.filled(selectedList.length, 0.0);
+      final List<double> rawI = intensityVector(
+        compounds: selectedList,
+        headspaceConc: hsConc,
+      );
+      _blendedIntensities = blendedIntensity(
+        compounds: selectedList,
+        rawIntensities: rawI,
+      );
+
+      // ── Phase 6: Accord scores ─────────────────────────────
+      _accordScores = scoreAccords(
+        compounds: selectedList,
+        moleFractions: optimizedFractions,
+      );
+
+      // ── Phase 8: Enhanced gram formulation ────────────────
+      // (replaces/extends the existing calculateGramComposition)
+      final List<FormulationEntry> formulationEntries = buildFormulation(
+        fragranceComps: selectedList,
+        fragranceFractions: optimizedFractions,
+        solventComps: solvents,
+        solventRatios: solventRatios,
+        totalSolventFraction: totalSolventFraction,
+        batchGram: batchMassGram,
+      );
+
+      // ── Phase 9: IFRA / safety check ──────────────────────
+      final FormulaSafetyChecker checker = FormulaSafetyChecker(
+        category: IfraCategory.cat1, // adjust per product type
+      );
+      _safetyAlerts = checker.check(
+        compoundNames: formulationEntries.map((e) => e.name).toList(),
+        massFractionsPct:
+            formulationEntries.map((e) => e.concentrationPct).toList(),
+      );
+
+      // ── Phase 7: Store formula record ─────────────────────
+      final double longevity = projectedLongevityHours(
+        compounds: selectedList,
+        odorValues: ov,
+      );
+      final List<double> nRoi = normalisedPwRoi(
+        compounds: selectedList,
+        moleFractions: optimizedFractions, // ← same here
+      );
+      final List<double> ovSafeForStore =
+          ov
+              .map((v) => (v <= 0 || v.isNaN || v.isInfinite) ? 1e-30 : v)
+              .toList();
+      final double ovBal = _calcOVBalance(ovSafeForStore);
+
+      FormulaHistoryStore.instance.add(
+        FormulaRecord(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          createdAt: DateTime.now(),
+          solventSystem: solventNames[selectedSolvent]!,
+          totalSolventFraction: totalSolventFraction,
+          compoundNames: selectedList.map((c) => c.name).toList(),
+          moleFractions: optimizedFractions,
+          activityCoefficients: gammas.sublist(0, selectedList.length),
+          odorValues: ov,
+          roiWeights: nRoi,
+          headspaceConc: hsConc,
+          topAccords: _topAccords,
+          accordBalance: accordBalance(selectedList, optimizedFractions),
+          projectedLongevityHours: longevity,
+          ovBalance: ovBal,
+        ),
+      );
       progressValue = 1.0;
     });
+
+    _gramComposition = calculateGramComposition(
+      fragranceComps: selectedList,
+      fragranceFractions: optimizedFractions,
+      solventComps: solvents,
+      solventRatios: solventRatios,
+      totalSolventFraction: totalSolventFraction,
+      batchGram: batchMassGram,
+    );
   }
 
   List<double> _renormalize(List<double> x, double targetSum) {
@@ -901,7 +1097,9 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
                   children: [
                     if (result.isNotEmpty) ...[
                       _buildResultsSection(),
-                      SizedBox(height: 24),
+                      SizedBox(height: 24), // ← sudah ada
+                      _buildGramSection(), // ← TAMBAH INI
+                      SizedBox(height: 24), // ← TAMBAH INI
                       if (_lastSelectedList.isNotEmpty)
                         buildNotesAndTernary(
                           _lastSelectedList,
@@ -917,6 +1115,49 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
                         _lastSolventRatios,
                         _lastSolventOVs,
                       ),
+                      SizedBox(height: 24),
+                      if (_trajectory.isNotEmpty) ...[
+                        SizedBox(height: 24),
+                        _SectionTitle(title: 'Fragrance Evolution'),
+                        SizedBox(height: 12),
+                        EvolutionChartWidget(
+                          trajectory: _trajectory,
+                          compounds: _lastSelectedList,
+                        ),
+                      ],
+
+                      if (_accordScores.isNotEmpty) ...[
+                        SizedBox(height: 24),
+                        _SectionTitle(title: 'Accord Profile'),
+                        SizedBox(height: 12),
+                        AccordRadarWidget(scores: _accordScores),
+                      ],
+
+                      if (_noteStates.isNotEmpty) ...[
+                        SizedBox(height: 24),
+                        _SectionTitle(title: 'Dynamic Note Classification'),
+                        SizedBox(height: 12),
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgCard,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: BlendProfilePanel(
+                            compounds: _lastSelectedList,
+                            moleFractions: _lastFractions,
+                          ),
+                        ),
+                      ],
+
+                      SizedBox(height: 24),
+                      AbcWheelWidget(
+                        compounds: compounds,
+                        moleFractions: _lastFractions,
+                      ),
+                      SizedBox(height: 24),
+                      SafetyAlertsPanel(alerts: _safetyAlerts),
                       SizedBox(height: 40),
                     ],
                   ],
@@ -1035,81 +1276,148 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildCompoundSearchField(int index) {
-    return DropDownSearchFormField<String>(
-      textFieldConfiguration: TextFieldConfiguration(
-        controller: _compoundControllers[index],
-        style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-        decoration: InputDecoration(
-          labelText: 'Senyawa ${index + 1}',
-          labelStyle: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-          hintText: 'Cari senyawa...',
-          hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-          filled: true,
-          fillColor: AppTheme.bgCard,
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: AppTheme.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: AppTheme.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: AppTheme.green400),
-          ),
-          prefixIcon: Icon(Icons.search, color: AppTheme.textMuted, size: 16),
-          suffixIcon:
-              selectedCompounds[index].isNotEmpty
-                  ? Icon(Icons.check_circle, color: AppTheme.green400, size: 16)
-                  : Icon(
-                    Icons.arrow_drop_down,
-                    color: AppTheme.textMuted,
-                    size: 20,
-                  ),
-        ),
-      ),
-      suggestionsCallback: (pattern) => _getSuggestions(pattern),
-      itemBuilder: (context, String suggestion) {
-        final isSelected = suggestion == selectedCompounds[index];
-        return Container(
-          color:
-              isSelected ? AppTheme.green900.withOpacity(0.5) : AppTheme.bgCard,
-          child: ListTile(
-            dense: true,
-            title: Text(
-              suggestion,
+  Widget _buildGramSection() {
+    if (_gramComposition.isEmpty) return SizedBox.shrink();
+
+    final fragranceRows =
+        _gramComposition.where((e) => !(e['isSolvent'] as bool)).toList();
+    final solventRows =
+        _gramComposition.where((e) => e['isSolvent'] as bool).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Header + Batch Input ──────────────────────────────────
+        Row(
+          children: [
+            Icon(Icons.scale_outlined, color: AppTheme.green400, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Komposisi Massa',
               style: TextStyle(
-                color: isSelected ? AppTheme.green200 : AppTheme.textPrimary,
-                fontSize: 13,
+                fontFamily: AppTheme.fontSerif,
+                color: AppTheme.textPrimary,
+                fontSize: 20,
               ),
             ),
-            trailing:
-                isSelected
-                    ? Icon(Icons.check, color: AppTheme.green400, size: 14)
-                    : null,
-          ),
-        );
-      },
-      transitionBuilder:
-          (context, suggestionsBox, controller) => suggestionsBox,
-      onSuggestionSelected: (String suggestion) {
+            Spacer(),
+            // Batch input
+            Text(
+              'Total Batch:',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            SizedBox(width: 8),
+            Container(
+              width: 100,
+              height: 36,
+              child: TextField(
+                controller: _batchController,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 13,
+                  fontFamily: 'Courier',
+                ),
+                decoration: InputDecoration(
+                  suffixText: 'g',
+                  suffixStyle: TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 12,
+                  ),
+                  filled: true,
+                  fillColor: AppTheme.bgCard,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: AppTheme.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: AppTheme.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(color: AppTheme.green400),
+                  ),
+                ),
+                onChanged: (val) {
+                  final parsed = double.tryParse(val);
+                  if (parsed != null && parsed > 0) {
+                    setState(() {
+                      batchMassGram = parsed;
+                      // Recalculate gram composition real-time
+                      _gramComposition = calculateGramComposition(
+                        fragranceComps: _lastSelectedList,
+                        fragranceFractions: _lastFractions,
+                        solventComps: _lastSolvents,
+                        solventRatios: _lastSolventRatios,
+                        totalSolventFraction: totalSolventFraction,
+                        batchGram: batchMassGram,
+                      );
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16),
+
+        // ── Summary Cards (ringkasan) ─────────────────────────────
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Card Fragrance
+            Expanded(
+              child: _GramSummaryCard(
+                title: 'SENYAWA PEWANGI',
+                rows: fragranceRows,
+                accentColor: AppTheme.green400,
+                totalGram: fragranceRows.fold(
+                  0.0,
+                  (sum, e) => sum + (e['massGram'] as double),
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            // Card Solvent
+            Expanded(
+              child: _GramSummaryCard(
+                title: 'PELARUT',
+                rows: solventRows,
+                accentColor: Color(0xFF4FC3F7),
+                totalGram: solventRows.fold(
+                  0.0,
+                  (sum, e) => sum + (e['massGram'] as double),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16),
+
+        // ── Detail Table ──────────────────────────────────────────
+        _GramDetailTable(rows: _gramComposition, totalGram: batchMassGram),
+      ],
+    );
+  }
+
+  Widget _buildCompoundSearchField(int index) {
+    return CompoundSearchField(
+      // ← capital C, from new file
+      index: index,
+      selectedValue: selectedCompounds[index],
+      controller: _compoundControllers[index],
+      onSelected: (String suggestion) {
         setState(() {
           selectedCompounds[index] = suggestion;
           _compoundControllers[index].text = suggestion;
           generateRandomFractions();
         });
       },
-      hideOnEmpty: true,
-      suggestionsBoxDecoration: SuggestionsBoxDecoration(
-        elevation: 8,
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(4),
-        constraints: BoxConstraints(maxHeight: 220),
-        //border: Border.all(color: AppTheme.border),
-      ),
     );
   }
 }
@@ -1389,6 +1697,390 @@ class _Pill extends StatelessWidget {
         label,
         style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
       ),
+    );
+  }
+}
+
+class _GramSummaryCard extends StatelessWidget {
+  final String title;
+  final List<Map<String, dynamic>> rows;
+  final Color accentColor;
+  final double totalGram;
+
+  const _GramSummaryCard({
+    required this.title,
+    required this.rows,
+    required this.accentColor,
+    required this.totalGram,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 10,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                ),
+                child: Text(
+                  '${totalGram.toStringAsFixed(2)} g',
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 11,
+                    fontFamily: 'Courier',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Divider(color: AppTheme.border, height: 16),
+          ...rows.map((e) {
+            final double gram = e['massGram'] as double;
+            final double pct = (e['massFraction'] as double) * 100;
+            return Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          e['name'] as String,
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '${gram.toStringAsFixed(3)} g',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 11,
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  // Mini progress bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: e['massFraction'] as double,
+                      backgroundColor: AppTheme.border,
+                      color: accentColor.withOpacity(0.6),
+                      minHeight: 3,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    '${pct.toStringAsFixed(1)}% massa  |  '
+                    'MW: ${(e['MW'] as double).toStringAsFixed(1)}  |  '
+                    'x: ${(e['moleFraction'] as double).toStringAsFixed(4)}',
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 9),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _GramDetailTable extends StatelessWidget {
+  final List<Map<String, dynamic>> rows;
+  final double totalGram;
+
+  const _GramDetailTable({required this.rows, required this.totalGram});
+
+  @override
+  Widget build(BuildContext context) {
+    final headers = [
+      'Senyawa',
+      'MW',
+      'x (mol)',
+      'w (massa)',
+      'Massa (g)',
+      'Tipe',
+    ];
+    final colFlex = [3, 1, 1, 1, 1, 1];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Table header
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.table_chart_outlined,
+                  color: AppTheme.green400,
+                  size: 14,
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'TABEL DETAIL KOMPOSISI',
+                  style: TextStyle(
+                    color: AppTheme.green400,
+                    fontSize: 10,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: AppTheme.border, height: 1),
+
+          // Column headers
+          Container(
+            color: AppTheme.bg,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: List.generate(headers.length, (i) {
+                return Expanded(
+                  flex: colFlex[i],
+                  child: Text(
+                    headers[i],
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 10,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: i == 0 ? TextAlign.left : TextAlign.right,
+                  ),
+                );
+              }),
+            ),
+          ),
+          Divider(color: AppTheme.border, height: 1),
+
+          // Rows
+          ...rows.asMap().entries.map((entry) {
+            final i = entry.key;
+            final e = entry.value;
+            final bool isSolvent = e['isSolvent'] as bool;
+            final Color rowBg =
+                i % 2 == 0 ? AppTheme.bgCard : AppTheme.bg.withOpacity(0.5);
+
+            return Container(
+              color: rowBg,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      e['name'] as String,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      (e['MW'] as double).toStringAsFixed(1),
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                        fontFamily: 'Courier',
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      (e['moleFraction'] as double).toStringAsFixed(4),
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                        fontFamily: 'Courier',
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      '${((e['massFraction'] as double) * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                        fontFamily: 'Courier',
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      '${(e['massGram'] as double).toStringAsFixed(3)}g',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 11,
+                        fontFamily: 'Courier',
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              isSolvent
+                                  ? Color(0xFF1565C0).withOpacity(0.2)
+                                  : AppTheme.green900.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(
+                            color:
+                                isSolvent
+                                    ? Color(0xFF4FC3F7).withOpacity(0.4)
+                                    : AppTheme.green600,
+                          ),
+                        ),
+                        child: Text(
+                          isSolvent ? 'Pelarut' : 'Pewangi',
+                          style: TextStyle(
+                            color:
+                                isSolvent
+                                    ? Color(0xFF4FC3F7)
+                                    : AppTheme.green400,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Total row
+          Divider(color: AppTheme.border, height: 1),
+          Container(
+            color: AppTheme.green900.withOpacity(0.3),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'TOTAL',
+                    style: TextStyle(
+                      color: AppTheme.green400,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                Expanded(flex: 1, child: SizedBox()),
+                Expanded(flex: 1, child: SizedBox()),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    '100.0%',
+                    style: TextStyle(
+                      color: AppTheme.green400,
+                      fontSize: 11,
+                      fontFamily: 'Courier',
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    '${totalGram.toStringAsFixed(3)}g',
+                    style: TextStyle(
+                      color: AppTheme.green400,
+                      fontSize: 11,
+                      fontFamily: 'Courier',
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(flex: 1, child: SizedBox()),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  const _SectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(width: 3, height: 18, color: AppTheme.green400),
+        SizedBox(width: 10),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 11,
+            letterSpacing: 1.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
