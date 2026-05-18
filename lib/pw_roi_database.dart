@@ -69,16 +69,16 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── W — WOOD ─────────────────────────────────────────────
   PwRoiEntry(
     name: 'Ambroxan',
-    relativeImpact: 5.0, // Extremely high RI — superpotent
-    odourLifeHours: 168.0, // ~7 days; legendary fixative
+    relativeImpact: 400, // Extremely high RI — superpotent
+    odourLifeHours: 750, // ~7 days; legendary fixative
     abcClass: 'U', // Animal/Amber in PW (Uw)
     abcLabel: 'U-Animal — Ambergris facet',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Bacdanol',
-    relativeImpact: 50.0, // High impact sandalwood
-    odourLifeHours: 72.0,
+    relativeImpact: 80.0, // High impact sandalwood
+    odourLifeHours: 300.0,
     abcClass: 'W',
     abcLabel: 'W-Wood — Sandalwood facet',
     source: 'PW',
@@ -86,23 +86,23 @@ const List<PwRoiEntry> pwRoiDatabase = [
   PwRoiEntry(
     name: 'Cashmeran',
     relativeImpact: 80.0, // Near-Linalool range
-    odourLifeHours: 96.0,
-    abcClass: 'W',
-    abcLabel: 'W-Wood — Kashmiri/Musky wood',
+    odourLifeHours: 200.0,
+    abcClass: 'X',
+    abcLabel: 'X-Musk Sexy, Musk, Sensual Skin-like',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Cedryl Acetate',
-    relativeImpact: 200.0, // Low-medium; soft cedar
-    odourLifeHours: 120.0,
+    relativeImpact: 60.0, // Low-medium; soft cedar
+    odourLifeHours: 40.0,
     abcClass: 'W',
     abcLabel: 'W-Wood — Cedarwood acetate',
-    source: 'LIT',
+    source: 'PW',
   ),
   PwRoiEntry(
     name: 'Galaxolide',
-    relativeImpact: 30.0, // High RI musk — strong impact
-    odourLifeHours: 120.0,
+    relativeImpact: 60.0, // High RI musk — strong impact
+    odourLifeHours: 200.0,
     abcClass: 'X',
     abcLabel: 'X-Musk — Polycyclic musk',
     source: 'PW',
@@ -110,15 +110,15 @@ const List<PwRoiEntry> pwRoiDatabase = [
   PwRoiEntry(
     name: 'Iso E Super',
     relativeImpact: 40.0, // High RI; diffusive woody amber
-    odourLifeHours: 72.0,
+    odourLifeHours: 260.0,
     abcClass: 'W',
     abcLabel: 'W-Wood — Woody cedarwood amber',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Javanol',
-    relativeImpact: 30.0, // Very high impact sandalwood
-    odourLifeHours: 96.0,
+    relativeImpact: 250.0, // Very high impact sandalwood
+    odourLifeHours: 400.0,
     abcClass: 'W',
     abcLabel: 'W-Wood — Sandalwood (Givaudan)',
     source: 'LIT',
@@ -133,18 +133,18 @@ const List<PwRoiEntry> pwRoiDatabase = [
   ),
   PwRoiEntry(
     name: 'Sandalmysore Core',
-    relativeImpact: 60.0,
-    odourLifeHours: 72.0,
+    relativeImpact: 98.0,
+    odourLifeHours: 42.0,
     abcClass: 'W',
     abcLabel: 'W-Wood — Sandalwood core',
-    source: 'LIT',
+    source: 'PW',
   ),
 
   // ── R — ROSE ─────────────────────────────────────────────
   PwRoiEntry(
     name: 'Citronellol',
-    relativeImpact: 150.0,
-    odourLifeHours: 24.0,
+    relativeImpact: 100.0,
+    odourLifeHours: 20.0,
     abcClass: 'R',
     abcLabel: 'R-Rose — Citronellol rose',
     source: 'PW',
@@ -159,18 +159,18 @@ const List<PwRoiEntry> pwRoiDatabase = [
   ),
   PwRoiEntry(
     name: 'Nerol',
-    relativeImpact: 120.0,
-    odourLifeHours: 16.0,
-    abcClass: 'R',
-    abcLabel: 'R-Rose — Nerol / Rose-citrus',
-    source: 'LIT',
+    relativeImpact: 100.0,
+    odourLifeHours: 18.0,
+    abcClass: 'C',
+    abcLabel: 'C-Citrus Sour Sharp Citrus',
+    source: 'PW',
   ),
 
   // ── L — LINALOOL ─────────────────────────────────────────
   PwRoiEntry(
     name: 'Linalool',
     relativeImpact: 100.0, // THE reference material
-    odourLifeHours: 12.0,
+    odourLifeHours: 10.0,
     abcClass: 'L',
     abcLabel: 'L-Linalool — Fresh floral reference',
     source: 'PW',
@@ -179,16 +179,16 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── J — JASMINE ──────────────────────────────────────────
   PwRoiEntry(
     name: 'Benzyl Acetate',
-    relativeImpact: 200.0, // Moderate; jasmine solvent-like
-    odourLifeHours: 8.0,
+    relativeImpact: 120.0, // Moderate; jasmine solvent-like
+    odourLifeHours: 15.0,
     abcClass: 'J',
     abcLabel: 'J-Jasmine — Jasmine/fruity',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Hedione',
-    relativeImpact: 300.0, // Low impact; very diffusive
-    odourLifeHours: 36.0,
+    relativeImpact: 65.0, // Low impact; very diffusive
+    odourLifeHours: 160.0,
     abcClass: 'J',
     abcLabel: 'J-Jasmine — Methyl dihydrojasmonate',
     source: 'PW',
@@ -197,16 +197,16 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── V — VANILLA ──────────────────────────────────────────
   PwRoiEntry(
     name: 'Coumarin',
-    relativeImpact: 80.0,
-    odourLifeHours: 72.0,
+    relativeImpact: 120.0,
+    odourLifeHours: 85.0,
     abcClass: 'V',
     abcLabel: 'V-Vanilla — Coumarin / hay',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Vanillin',
-    relativeImpact: 50.0,
-    odourLifeHours: 96.0,
+    relativeImpact: 60.0,
+    odourLifeHours: 400.0,
     abcClass: 'V',
     abcLabel: 'V-Vanilla — Vanillin',
     source: 'PW',
@@ -215,8 +215,8 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── I — IRIS / IONONE ────────────────────────────────────
   PwRoiEntry(
     name: 'a- ionone',
-    relativeImpact: 10.0, // High impact violet/woody
-    odourLifeHours: 48.0,
+    relativeImpact: 100.0, // High impact violet/woody
+    odourLifeHours: 100.0,
     abcClass: 'I',
     abcLabel: 'I-Iris — Alpha-Ionone / violet',
     source: 'PW',
@@ -225,15 +225,15 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── S — SPICE ────────────────────────────────────────────
   PwRoiEntry(
     name: 'Cinnamaldehyde',
-    relativeImpact: 30.0, // High impact spice
-    odourLifeHours: 24.0,
+    relativeImpact: 130.0, // High impact spice
+    odourLifeHours: 75.0,
     abcClass: 'S',
     abcLabel: 'S-Spice — Cinnamon aldehyde',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Eugenol',
-    relativeImpact: 50.0,
+    relativeImpact: 175.0,
     odourLifeHours: 48.0,
     abcClass: 'S',
     abcLabel: 'S-Spice — Eugenol / clove',
@@ -243,36 +243,36 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── P — PHENOL ───────────────────────────────────────────
   PwRoiEntry(
     name: 'Evernyl',
-    relativeImpact: 40.0, // Oakmoss phenolic — high impact
-    odourLifeHours: 120.0,
-    abcClass: 'P',
-    abcLabel: 'P-Phenol — Orcinol dimethyl ether / mossy',
-    source: 'LIT',
+    relativeImpact: 60.0, // Oakmoss phenolic — high impact
+    odourLifeHours: 240.0,
+    abcClass: 'Y',
+    abcLabel: 'Y-Yeast Mossy Fungal Marine Ozone',
+    source: 'PW',
   ),
 
   // ── G — GREEN ────────────────────────────────────────────
   PwRoiEntry(
     name: 'CIS-6-NONEAL',
-    relativeImpact: 1.0, // Ultra-high impact green aldehyde
-    odourLifeHours: 4.0, // Very short-lived top note
-    abcClass: 'G',
-    abcLabel: 'G-Green — Cucumber / green aldehyde',
-    source: 'LIT',
+    relativeImpact: 700, // Ultra-high impact green aldehyde
+    odourLifeHours: 1.5, // Very short-lived top note
+    abcClass: 'F',
+    abcLabel: 'F-Fruit Sweet & Sour Berry to Banana',
+    source: 'PW',
   ),
   PwRoiEntry(
     name: 'Cis-3-Hexenyl Acetate',
-    relativeImpact: 80.0,
-    odourLifeHours: 6.0,
+    relativeImpact: 800.0,
+    odourLifeHours: 2.0,
     abcClass: 'G',
     abcLabel: 'G-Green — Cis-3-hexenyl acetate / cut grass',
-    source: 'LIT',
+    source: 'PW',
   ),
 
   // ── C — CITRUS ───────────────────────────────────────────
   PwRoiEntry(
     name: 'Limonene',
-    relativeImpact: 500.0, // Low impact; high usage dose
-    odourLifeHours: 2.0, // Evaporates very fast
+    relativeImpact: 70.0, // Low impact; high usage dose
+    odourLifeHours: 1.0, // Evaporates very fast
     abcClass: 'C',
     abcLabel: 'C-Citrus — Limonene / orange peel',
     source: 'PW',
@@ -281,29 +281,29 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── A — ALIPHATIC ────────────────────────────────────────
   PwRoiEntry(
     name: 'Dodecanal',
-    relativeImpact: 15.0, // High impact fatty aldehyde
-    odourLifeHours: 12.0,
+    relativeImpact: 600, // High impact fatty aldehyde
+    odourLifeHours: 80,
     abcClass: 'A',
     abcLabel: 'A-Aliphatic — Dodecanal / fatty aldehydic',
-    source: 'LIT',
+    source: 'PW',
   ),
 
   // ── F — FRUIT / ESTER ────────────────────────────────────
   PwRoiEntry(
     name: 'Isoamyl Acetate',
-    relativeImpact: 150.0, // Medium; banana/pear
-    odourLifeHours: 3.0,
+    relativeImpact: 800.0, // Medium; banana/pear
+    odourLifeHours: 0.1,
     abcClass: 'F',
     abcLabel: 'F-Fruit — Isoamyl acetate / banana',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Hexyl Acetate',
-    relativeImpact: 200.0,
-    odourLifeHours: 4.0,
+    relativeImpact: 220.0,
+    odourLifeHours: 0.2,
     abcClass: 'F',
     abcLabel: 'F-Fruit — Hexyl acetate / fruity',
-    source: 'LIT',
+    source: 'PW',
   ),
   PwRoiEntry(
     name: 'Heptyl Acetate',
@@ -333,54 +333,54 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── X — MUSK ─────────────────────────────────────────────
   PwRoiEntry(
     name: 'Frukton',
-    relativeImpact: 60.0,
-    odourLifeHours: 60.0,
-    abcClass: 'X',
-    abcLabel: 'X-Musk — Fruity musk',
+    relativeImpact: 80.0,
+    odourLifeHours: 2.0,
+    abcClass: 'F',
+    abcLabel: 'F-Fruit — Fruit Sweet & Sour Berry to Banana',
     source: 'EST',
   ),
 
   // ── Q — ORIENTAL / AMBER ─────────────────────────────────
   PwRoiEntry(
     name: 'Romandolide',
-    relativeImpact: 80.0,
-    odourLifeHours: 120.0,
-    abcClass: 'Q',
-    abcLabel: 'Q-Orient — Macrocyclic musk / amber',
+    relativeImpact: 100.0,
+    odourLifeHours: 400.0,
+    abcClass: 'X',
+    abcLabel: 'X-Musk Sexy, Musk, Sensual Skin-like',
     source: 'LIT',
   ),
   PwRoiEntry(
     name: 'Macrolide',
-    relativeImpact: 90.0,
-    odourLifeHours: 100.0,
-    abcClass: 'Q',
-    abcLabel: 'Q-Orient — Macrocyclic lactone / musky',
+    relativeImpact: 250.0,
+    odourLifeHours: 400.0,
+    abcClass: 'X',
+    abcLabel: 'X-Musk Sexy, Musk, Sensual Skin-like',
     source: 'EST',
   ),
 
   // ── N — NARCOTIC ─────────────────────────────────────────
   PwRoiEntry(
     name: 'Benzaldehyde',
-    relativeImpact: 30.0, // High impact; sharp almond
-    odourLifeHours: 6.0,
-    abcClass: 'N', // PW classifies under narcotic/almond
-    abcLabel: 'N-Narcotic — Benzaldehyde / almond',
+    relativeImpact: 500.0, // High impact; sharp almond
+    odourLifeHours: 1.5,
+    abcClass: 'F', // PW classifies under narcotic/almond
+    abcLabel: 'F-Fruit — Benzaldehyde / almond cherry',
     source: 'PW',
   ),
 
   // ── Compound entries that span multiple classes ───────────
   PwRoiEntry(
     name: 'Menthol',
-    relativeImpact: 50.0,
-    odourLifeHours: 8.0,
+    relativeImpact: 120.0,
+    odourLifeHours: 18.0,
     abcClass: 'B',
     abcLabel: 'B-iceBerg — Menthol / mint cooling',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'b-caryophyllenol',
-    relativeImpact: 150.0,
-    odourLifeHours: 60.0,
+    relativeImpact: 50.0,
+    odourLifeHours: 28.0,
     abcClass: 'W',
     abcLabel: 'W-Wood — Sesquiterpene alcohol / woody spicy',
     source: 'EST',
@@ -405,24 +405,24 @@ const List<PwRoiEntry> pwRoiDatabase = [
   // ── SOLVENTS / CARRIERS ──────────────────────────────────
   PwRoiEntry(
     name: 'Ethanol',
-    relativeImpact: 2000.0, // Very low odour impact
-    odourLifeHours: 0.5,
+    relativeImpact: 0, // Very low odour impact
+    odourLifeHours: 0.05,
     abcClass: 'Z',
     abcLabel: 'Z-Solvent — Ethanol / carrier',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'Water',
-    relativeImpact: 10000.0, // Near-odourless
-    odourLifeHours: 0.1,
+    relativeImpact: 0, // Near-odourless
+    odourLifeHours: 0.01,
     abcClass: 'Z',
     abcLabel: 'Z-Solvent — Water',
     source: 'PW',
   ),
   PwRoiEntry(
     name: 'DPG',
-    relativeImpact: 5000.0, // Odourless carrier
-    odourLifeHours: 0.5,
+    relativeImpact: 3.0, // Odourless carrier
+    odourLifeHours: 7,
     abcClass: 'Z',
     abcLabel: 'Z-Solvent — Dipropylene Glycol / carrier',
     source: 'PW',
