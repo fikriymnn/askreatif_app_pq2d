@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:askreatif_app/AccordIntelligence.dart';
 import 'package:askreatif_app/Advanced_Visualization_Widgets.dart';
+import 'package:askreatif_app/ClimateModel.dart';
 import 'package:askreatif_app/Compound.dart';
 import 'package:askreatif_app/Evaporation.dart';
 import 'package:askreatif_app/FormulationEngine.dart';
@@ -14,7 +15,6 @@ import 'package:askreatif_app/amn_selected_groups.dart';
 import 'package:askreatif_app/classifyNote.dart';
 import 'package:askreatif_app/colorTheme.dart';
 import 'package:askreatif_app/group_params.dart';
-import 'package:drop_down_search_field/drop_down_search_field.dart';
 import 'ifra_safety.dart';
 import 'package:flutter/material.dart';
 
@@ -44,6 +44,8 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
   List<Compound> _lastSolvents = [];
   List<double> _lastSolventRatios = [];
   List<double> _lastSolventOVs = [];
+  List<double> _lastGammas = [];
+  List<ClimatePerformanceReport> _lastClimateReports = [];
 
   late List<TextEditingController> _compoundControllers;
 
@@ -594,9 +596,22 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
     _lastSelectedList = selectedList;
     _lastFractions = optimizedFractions;
     _lastOV = ov;
+    List<ClimatePerformanceReport> climateReports =
+        presetClimates
+            .take(3) // European, Tropical, Nordic
+            .map(
+              (climate) => evaluateClimatePerformance(
+                fragranceComps: selectedList,
+                moleFractions: optimizedFractions,
+                odorValues: ov,
+                climate: climate,
+              ),
+            )
+            .toList();
     _lastSolvents = solvents;
     _lastSolventRatios = solventRatios;
     _lastSolventOVs = solventOVsList;
+    _lastGammas = gammas.sublist(0, selectedList.length); // ← tambah ini
 
     setState(() {
       result = newResult; // ← ADD THIS LINE (was missing)
@@ -697,6 +712,7 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
         ),
       );
       progressValue = 1.0;
+      _lastClimateReports = climateReports;
     });
 
     _gramComposition = calculateGramComposition(
@@ -1097,9 +1113,9 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
                   children: [
                     if (result.isNotEmpty) ...[
                       _buildResultsSection(),
-                      SizedBox(height: 24), // ← sudah ada
-                      _buildGramSection(), // ← TAMBAH INI
-                      SizedBox(height: 24), // ← TAMBAH INI
+                      SizedBox(height: 24),
+                      _buildGramSection(),
+                      SizedBox(height: 24),
                       if (_lastSelectedList.isNotEmpty)
                         buildNotesAndTernary(
                           _lastSelectedList,
@@ -1116,25 +1132,25 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
                         _lastSolventOVs,
                       ),
                       SizedBox(height: 24),
+
                       if (_trajectory.isNotEmpty) ...[
-                        SizedBox(height: 24),
                         _SectionTitle(title: 'Fragrance Evolution'),
                         SizedBox(height: 12),
                         EvolutionChartWidget(
                           trajectory: _trajectory,
                           compounds: _lastSelectedList,
                         ),
+                        SizedBox(height: 24),
                       ],
 
                       if (_accordScores.isNotEmpty) ...[
-                        SizedBox(height: 24),
                         _SectionTitle(title: 'Accord Profile'),
                         SizedBox(height: 12),
                         AccordRadarWidget(scores: _accordScores),
+                        SizedBox(height: 24),
                       ],
 
                       if (_noteStates.isNotEmpty) ...[
-                        SizedBox(height: 24),
                         _SectionTitle(title: 'Dynamic Note Classification'),
                         SizedBox(height: 12),
                         Container(
@@ -1149,16 +1165,52 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
                             moleFractions: _lastFractions,
                           ),
                         ),
+                        SizedBox(height: 24),
                       ],
 
-                      SizedBox(height: 24),
                       AbcWheelWidget(
                         compounds: compounds,
                         moleFractions: _lastFractions,
                       ),
                       SizedBox(height: 24),
+
                       SafetyAlertsPanel(alerts: _safetyAlerts),
-                      SizedBox(height: 40),
+                      SizedBox(height: 24),
+
+                      // ── Accord Intelligence ───────────────────
+                      if (_lastGammas.isNotEmpty) ...[
+                        buildAccordIntelligence(
+                          _lastSelectedList,
+                          _lastFractions,
+                          _lastGammas,
+                        ),
+                        SizedBox(height: 24),
+                      ],
+
+                      // ── Accord Evolution Timeline ─────────────
+                      if (_lastSelectedList.isNotEmpty &&
+                          _lastGammas.isNotEmpty) ...[
+                        buildAccordEvolution(
+                          _lastSelectedList,
+                          _lastFractions,
+                          (x) => calculateImprovedUnifacCoefficients(
+                            [..._lastSelectedList, ..._lastSolvents],
+                            [
+                              ...x,
+                              ..._lastSolventRatios.map(
+                                (r) => r * totalSolventFraction,
+                              ),
+                            ],
+                          ).sublist(0, _lastSelectedList.length),
+                        ),
+                        SizedBox(height: 24),
+                      ],
+
+                      // ── Climate Performance ───────────────────
+                      if (_lastClimateReports.isNotEmpty) ...[
+                        buildClimatePerformance(_lastClimateReports),
+                        SizedBox(height: 40),
+                      ],
                     ],
                   ],
                 ),

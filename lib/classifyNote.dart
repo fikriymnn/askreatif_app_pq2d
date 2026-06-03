@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:askreatif_app/Compound.dart';
 import 'package:askreatif_app/OctonaryPainter.dart';
 import 'package:askreatif_app/TernaryPainter.dart';
+import 'package:askreatif_app/AccordIntelligence.dart';
+import 'package:askreatif_app/ClimateModel.dart';
 import 'package:flutter/material.dart';
 
 // =========================================================
@@ -528,6 +530,1144 @@ Widget buildOctonaryDiagram(
       ),
     ],
   );
+}
+// ============================================================
+// UI: Accord Intelligence + Climate Performance
+// Tambahkan di bawah buildOctonaryDiagram()
+// ============================================================
+
+// ── Accord Intelligence Widget ────────────────────────────
+Widget buildAccordIntelligence(
+  List<Compound> selectedList,
+  List<double> optimizedFractions,
+  List<double> activityCoefficients,
+) {
+  final AccordIntelligenceResult result = analyzeAccords(
+    compounds: selectedList,
+    moleFractions: optimizedFractions,
+    activityCoefficients: activityCoefficients,
+  );
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(height: 24),
+      _SectionHeader(icon: Icons.auto_awesome, label: 'Accord Intelligence'),
+      SizedBox(height: 16),
+
+      // ── Top row: dominant profile + harmony score ──────
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Dominant profile card
+          Expanded(flex: 3, child: _AccordDominantCard(result: result)),
+          SizedBox(width: 12),
+          // Harmony score card
+          Expanded(
+            flex: 2,
+            child: _HarmonyScoreCard(
+              score: result.harmonyScore,
+              conflicts: result.conflicts,
+              synergies: result.synergies,
+            ),
+          ),
+        ],
+      ),
+
+      SizedBox(height: 12),
+
+      // ── Accord scores bar chart ────────────────────────
+      _AccordScoreBars(scores: result.scores),
+
+      SizedBox(height: 12),
+
+      // ── Conflicts & Synergies ──────────────────────────
+      if (result.conflicts.isNotEmpty || result.synergies.isNotEmpty)
+        _AccordInteractionBadges(
+          conflicts: result.conflicts,
+          synergies: result.synergies,
+        ),
+    ],
+  );
+}
+
+// ── Accord Dominant Card ──────────────────────────────────
+class _AccordDominantCard extends StatelessWidget {
+  final AccordIntelligenceResult result;
+  const _AccordDominantCard({required this.result});
+
+  @override
+  Widget build(BuildContext context) {
+    final dominant = result.scores.isNotEmpty ? result.scores.first : null;
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _T.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _T.green800.withOpacity(0.5)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_T.bgCard, _T.green900.withOpacity(0.3)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: _T.green400, size: 13),
+              SizedBox(width: 6),
+              Text(
+                'DOMINANT PROFILE',
+                style: TextStyle(
+                  color: _T.green400,
+                  fontSize: 10,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          if (dominant != null) ...[
+            Text(dominant.accord.icon, style: TextStyle(fontSize: 32)),
+            SizedBox(height: 6),
+            Text(
+              dominant.accord.name,
+              style: TextStyle(
+                color: _T.textPrimary,
+                fontSize: 18,
+                fontFamily: 'Georgia',
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              dominant.accord.description,
+              style: TextStyle(
+                color: _T.textSecondary,
+                fontSize: 11,
+                height: 1.5,
+              ),
+            ),
+          ],
+          SizedBox(height: 12),
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              result.blendCharacter,
+              style: TextStyle(
+                color: _T.textSecondary,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                height: 1.5,
+              ),
+            ),
+          ),
+
+          // Accord role hierarchy
+          SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children:
+                result.scores
+                    .where((s) => s.role != AccordRole.absent)
+                    .map((s) => _AccordRoleBadge(score: s))
+                    .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Harmony Score Card ────────────────────────────────────
+class _HarmonyScoreCard extends StatelessWidget {
+  final double score;
+  final List<String> conflicts;
+  final List<String> synergies;
+
+  const _HarmonyScoreCard({
+    required this.score,
+    required this.conflicts,
+    required this.synergies,
+  });
+
+  Color get _harmonyColor {
+    if (score >= 0.80) return Color(0xFF43A047);
+    if (score >= 0.60) return Color(0xFFFFA726);
+    return Color(0xFFEF5350);
+  }
+
+  String get _harmonyLabel {
+    if (score >= 0.80) return 'Harmonious';
+    if (score >= 0.60) return 'Balanced';
+    return 'Contrasting';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _T.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _T.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'HARMONY',
+            style: TextStyle(
+              color: _T.green400,
+              fontSize: 10,
+              letterSpacing: 2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 16),
+
+          // Circular harmony indicator
+          Center(
+            child: SizedBox(
+              width: 90,
+              height: 90,
+              child: CustomPaint(
+                painter: _HarmonyRingPainter(
+                  score: score,
+                  color: _harmonyColor,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${(score * 100).toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: _harmonyColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                      Text(
+                        '%',
+                        style: TextStyle(color: _T.textMuted, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          SizedBox(height: 10),
+          Center(
+            child: Text(
+              _harmonyLabel,
+              style: TextStyle(
+                color: _harmonyColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+
+          SizedBox(height: 16),
+          if (synergies.isNotEmpty) ...[
+            _MiniLabel(
+              icon: Icons.add_circle_outline,
+              label:
+                  '${synergies.length} synerg${synergies.length > 1 ? "ies" : "y"}',
+              color: Color(0xFF43A047),
+            ),
+            SizedBox(height: 4),
+          ],
+          if (conflicts.isNotEmpty) ...[
+            _MiniLabel(
+              icon: Icons.warning_amber_outlined,
+              label:
+                  '${conflicts.length} conflict${conflicts.length > 1 ? "s" : ""}',
+              color: Color(0xFFFFA726),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Harmony Ring Painter ──────────────────────────────────
+class _HarmonyRingPainter extends CustomPainter {
+  final double score;
+  final Color color;
+  const _HarmonyRingPainter({required this.score, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 6;
+
+    // Background ring
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = _T.border
+        ..strokeWidth = 6
+        ..style = PaintingStyle.stroke,
+    );
+
+    // Score arc
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawArc(
+      rect,
+      -pi / 2,
+      2 * pi * score,
+      false,
+      Paint()
+        ..color = color
+        ..strokeWidth = 6
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HarmonyRingPainter old) => old.score != score;
+}
+
+// ── Accord Score Bars ─────────────────────────────────────
+class _AccordScoreBars extends StatelessWidget {
+  final List<AccordScore> scores;
+  const _AccordScoreBars({required this.scores});
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = scores.where((s) => s.score > 0.05).toList();
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _T.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _T.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ACCORD PROFILE',
+            style: TextStyle(
+              color: _T.green400,
+              fontSize: 10,
+              letterSpacing: 2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 12),
+          ...visible.map(
+            (s) => Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: _AccordBar(score: s),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccordBar extends StatelessWidget {
+  final AccordScore score;
+  const _AccordBar({required this.score});
+
+  Color get _roleColor {
+    switch (score.role) {
+      case AccordRole.dominant:
+        return Color(0xFF43A047);
+      case AccordRole.supporting:
+        return Color(0xFF29B6F6);
+      case AccordRole.trace:
+        return Color(0xFF8D6E63);
+      default:
+        return _T.border;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Icon + name
+        SizedBox(
+          width: 130,
+          child: Row(
+            children: [
+              Text(score.accord.icon, style: TextStyle(fontSize: 14)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  score.accord.name,
+                  style: TextStyle(color: _T.textSecondary, fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: 8),
+        // Bar
+        Expanded(
+          child: Stack(
+            children: [
+              Container(
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _T.border,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              FractionallySizedBox(
+                widthFactor: score.score.clamp(0.0, 1.0),
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _roleColor,
+                    borderRadius: BorderRadius.circular(3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _roleColor.withOpacity(0.4),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: 8),
+        // Score value + role badge
+        SizedBox(
+          width: 70,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                '${(score.score * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: _T.textPrimary,
+                  fontSize: 11,
+                  fontFamily: 'Courier',
+                ),
+              ),
+              SizedBox(width: 4),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: _roleColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: _roleColor.withOpacity(0.4)),
+                ),
+                child: Text(
+                  _roleLabel(score.role),
+                  style: TextStyle(
+                    color: _roleColor,
+                    fontSize: 8,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _roleLabel(AccordRole role) {
+    switch (role) {
+      case AccordRole.dominant:
+        return 'DOM';
+      case AccordRole.supporting:
+        return 'SUP';
+      case AccordRole.trace:
+        return 'TRC';
+      default:
+        return '';
+    }
+  }
+}
+
+// ── Accord Interaction Badges ─────────────────────────────
+class _AccordInteractionBadges extends StatelessWidget {
+  final List<String> conflicts;
+  final List<String> synergies;
+  const _AccordInteractionBadges({
+    required this.conflicts,
+    required this.synergies,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _T.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _T.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (synergies.isNotEmpty) ...[
+            _MiniLabel(
+              icon: Icons.add_circle_outline,
+              label: 'SYNERGIES',
+              color: Color(0xFF43A047),
+            ),
+            SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children:
+                  synergies
+                      .map(
+                        (s) => _InteractionChip(
+                          label: s,
+                          color: Color(0xFF43A047),
+                        ),
+                      )
+                      .toList(),
+            ),
+            SizedBox(height: 12),
+          ],
+          if (conflicts.isNotEmpty) ...[
+            _MiniLabel(
+              icon: Icons.warning_amber_outlined,
+              label: 'CONFLICTS',
+              color: Color(0xFFFFA726),
+            ),
+            SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children:
+                  conflicts
+                      .map(
+                        (s) => _InteractionChip(
+                          label: s,
+                          color: Color(0xFFFFA726),
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InteractionChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _InteractionChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(label, style: TextStyle(color: color, fontSize: 10)),
+    );
+  }
+}
+
+// ── Accord Evolution Timeline ─────────────────────────────
+Widget buildAccordEvolution(
+  List<Compound> selectedList,
+  List<double> optimizedFractions,
+  List<double> Function(List<double>) gammaFn,
+) {
+  final List<TemporalAccordSnapshot> timeline = computeAccordEvolution(
+    compounds: selectedList,
+    x0: optimizedFractions,
+    gammaFn: gammaFn,
+    timePoints: [0, 0.25, 0.5, 1, 2, 4, 8],
+  );
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(height: 24),
+      _SectionHeader(icon: Icons.timeline, label: 'Accord Evolution Timeline'),
+      SizedBox(height: 4),
+      Text(
+        'Bagaimana karakter aroma berubah dari top note hingga drydown.',
+        style: TextStyle(color: _T.textMuted, fontSize: 11),
+      ),
+      SizedBox(height: 16),
+
+      Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _T.bgCard,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _T.border),
+        ),
+        child: Column(
+          children: [
+            // Timeline header labels
+            Row(
+              children: [
+                SizedBox(width: 90),
+                ...timeline.map(
+                  (snap) => Expanded(
+                    child: Text(
+                      _timeLabel(snap.time),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _T.textMuted,
+                        fontSize: 9,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            // Accord rows
+            ...accordArchetypes
+                .where((a) => _hasPresence(a, timeline))
+                .map(
+                  (accord) =>
+                      _AccordTimelineRow(accord: accord, timeline: timeline),
+                ),
+          ],
+        ),
+      ),
+
+      SizedBox(height: 12),
+
+      // Time markers legend
+      _TimelineLegend(),
+    ],
+  );
+}
+
+bool _hasPresence(AccordProfile accord, List<TemporalAccordSnapshot> timeline) {
+  return timeline.any((snap) {
+    final score =
+        snap.accordResult.scores
+            .firstWhere(
+              (s) => s.accord.name == accord.name,
+              orElse:
+                  () => AccordScore(
+                    accord: accord,
+                    score: 0,
+                    roiContrib: 0,
+                    role: AccordRole.absent,
+                  ),
+            )
+            .score;
+    return score > 0.1;
+  });
+}
+
+String _timeLabel(double t) {
+  if (t < 1) return '${(t * 60).toStringAsFixed(0)}m';
+  return '${t.toStringAsFixed(0)}h';
+}
+
+class _AccordTimelineRow extends StatelessWidget {
+  final AccordProfile accord;
+  final List<TemporalAccordSnapshot> timeline;
+
+  const _AccordTimelineRow({required this.accord, required this.timeline});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // Accord label
+          SizedBox(
+            width: 90,
+            child: Row(
+              children: [
+                Text(accord.icon, style: TextStyle(fontSize: 12)),
+                SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    accord.name,
+                    style: TextStyle(color: _T.textSecondary, fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Score cells
+          ...timeline.map((snap) {
+            final AccordScore s = snap.accordResult.scores.firstWhere(
+              (s) => s.accord.name == accord.name,
+              orElse:
+                  () => AccordScore(
+                    accord: accord,
+                    score: 0,
+                    roiContrib: 0,
+                    role: AccordRole.absent,
+                  ),
+            );
+            return Expanded(child: _TimelineCell(score: s.score, role: s.role));
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineCell extends StatelessWidget {
+  final double score;
+  final AccordRole role;
+  const _TimelineCell({required this.score, required this.role});
+
+  Color get _cellColor {
+    if (score < 0.1) return Colors.transparent;
+    switch (role) {
+      case AccordRole.dominant:
+        return Color(0xFF43A047);
+      case AccordRole.supporting:
+        return Color(0xFF29B6F6);
+      case AccordRole.trace:
+        return Color(0xFF8D6E63);
+      default:
+        return Colors.transparent;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 2),
+      child: Container(
+        height: 22,
+        decoration: BoxDecoration(
+          color: _cellColor.withOpacity(score.clamp(0.0, 1.0) * 0.7),
+          borderRadius: BorderRadius.circular(2),
+          border:
+              score > 0.1
+                  ? Border.all(color: _cellColor.withOpacity(0.4))
+                  : null,
+        ),
+        child:
+            score > 0.1
+                ? Center(
+                  child: Text(
+                    '${(score * 100).toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 8,
+                      fontFamily: 'Courier',
+                    ),
+                  ),
+                )
+                : null,
+      ),
+    );
+  }
+}
+
+class _TimelineLegend extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _legendDot(Color(0xFF43A047), 'Dominant'),
+        SizedBox(width: 12),
+        _legendDot(Color(0xFF29B6F6), 'Supporting'),
+        SizedBox(width: 12),
+        _legendDot(Color(0xFF8D6E63), 'Trace'),
+      ],
+    );
+  }
+}
+
+// ── Climate Performance Widget ────────────────────────────
+Widget buildClimatePerformance(List<ClimatePerformanceReport> reports) {
+  if (reports.isEmpty) return SizedBox.shrink();
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(height: 24),
+      _SectionHeader(
+        icon: Icons.thermostat_outlined,
+        label: 'Climate Performance',
+      ),
+      SizedBox(height: 4),
+      Text(
+        'Proyeksi performa parfum di berbagai kondisi iklim.',
+        style: TextStyle(color: _T.textMuted, fontSize: 11),
+      ),
+      SizedBox(height: 16),
+
+      // Climate cards
+      ...reports.map(
+        (r) => Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: _ClimateCard(report: r),
+        ),
+      ),
+    ],
+  );
+}
+
+class _ClimateCard extends StatelessWidget {
+  final ClimatePerformanceReport report;
+  const _ClimateCard({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = report.climate;
+
+    return Container(
+      padding: EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _T.bgCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: _T.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(_climateIcon(c.region), color: _T.green400, size: 14),
+              SizedBox(width: 6),
+              Text(
+                c.name,
+                style: TextStyle(
+                  color: _T.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Spacer(),
+              _ClimateBadge(
+                label: '${c.ambientTempC.toStringAsFixed(0)}°C',
+                icon: Icons.thermostat,
+              ),
+              SizedBox(width: 6),
+              _ClimateBadge(
+                label: '${(c.relativeHumidity * 100).toStringAsFixed(0)}% RH',
+                icon: Icons.water_drop_outlined,
+              ),
+            ],
+          ),
+
+          SizedBox(height: 12),
+
+          // Metrics row
+          Row(
+            children: [
+              Expanded(
+                child: _ClimateMetric(
+                  label: 'Longevity',
+                  value: _formatLongevity(report.projectedLongevityHours),
+                  icon: Icons.access_time,
+                  color: _longevityColor(report.projectedLongevityHours),
+                ),
+              ),
+              Expanded(
+                child: _ClimateMetric(
+                  label: 'Projection',
+                  value:
+                      '${(report.projectionStrength * 100).toStringAsFixed(0)}%',
+                  icon: Icons.spatial_audio_off,
+                  color: _projectionColor(report.projectionStrength),
+                ),
+              ),
+              Expanded(
+                child: _ClimateMetric(
+                  label: 'Drydown',
+                  value:
+                      report.drydownBalance < 1.0
+                          ? 'Balanced'
+                          : report.drydownBalance < 2.0
+                          ? 'Moderate'
+                          : 'Uneven',
+                  icon: Icons.leaderboard_outlined,
+                  color:
+                      report.drydownBalance < 1.0
+                          ? Color(0xFF43A047)
+                          : report.drydownBalance < 2.0
+                          ? Color(0xFFFFA726)
+                          : Color(0xFFEF5350),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: 10),
+
+          // Summary text
+          Text(
+            report.performanceSummary,
+            style: TextStyle(
+              color: _T.textMuted,
+              fontSize: 10,
+              height: 1.5,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+
+          // Longevity bar
+          SizedBox(height: 8),
+          _LongevityBar(hours: report.projectedLongevityHours),
+        ],
+      ),
+    );
+  }
+
+  IconData _climateIcon(String region) {
+    switch (region) {
+      case 'Tropical':
+        return Icons.wb_sunny;
+      case 'Arid':
+        return Icons.landscape;
+      case 'Cold':
+        return Icons.ac_unit;
+      default:
+        return Icons.cloud;
+    }
+  }
+
+  String _formatLongevity(double h) {
+    if (h >= 99) return '>24h';
+    if (h >= 1) return '${h.toStringAsFixed(1)}h';
+    return '${(h * 60).toStringAsFixed(0)}m';
+  }
+
+  Color _longevityColor(double h) {
+    if (h >= 8) return Color(0xFF43A047);
+    if (h >= 4) return Color(0xFF29B6F6);
+    if (h >= 2) return Color(0xFFFFA726);
+    return Color(0xFFEF5350);
+  }
+
+  Color _projectionColor(double p) {
+    if (p >= 0.6) return Color(0xFF43A047);
+    if (p >= 0.3) return Color(0xFF29B6F6);
+    return Color(0xFF8D6E63);
+  }
+}
+
+class _ClimateMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  const _ClimateMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 3),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 14),
+          SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Courier',
+            ),
+          ),
+          Text(label, style: TextStyle(color: _T.textMuted, fontSize: 9)),
+        ],
+      ),
+    );
+  }
+}
+
+class _LongevityBar extends StatelessWidget {
+  final double hours;
+  const _LongevityBar({required this.hours});
+
+  @override
+  Widget build(BuildContext context) {
+    final double maxH = 12.0;
+    final double fraction = (hours / maxH).clamp(0.0, 1.0);
+    final Color barColor =
+        hours >= 8
+            ? Color(0xFF43A047)
+            : hours >= 4
+            ? Color(0xFF29B6F6)
+            : Color(0xFFFFA726);
+
+    return Row(
+      children: [
+        Text('0h', style: TextStyle(color: _T.textMuted, fontSize: 9)),
+        SizedBox(width: 6),
+        Expanded(
+          child: Stack(
+            children: [
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _T.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              FractionallySizedBox(
+                widthFactor: fraction,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [barColor.withOpacity(0.6), barColor],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: barColor.withOpacity(0.4),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: 6),
+        Text('12h+', style: TextStyle(color: _T.textMuted, fontSize: 9)),
+      ],
+    );
+  }
+}
+
+class _ClimateBadge extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _ClimateBadge({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: _T.bg,
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: _T.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: _T.textMuted),
+          SizedBox(width: 3),
+          Text(label, style: TextStyle(color: _T.textSecondary, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Shared mini widgets ───────────────────────────────────
+class _MiniLabel extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _MiniLabel({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 11, color: color),
+        SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccordRoleBadge extends StatelessWidget {
+  final AccordScore score;
+  const _AccordRoleBadge({required this.score});
+
+  Color get _color {
+    switch (score.role) {
+      case AccordRole.dominant:
+        return Color(0xFF43A047);
+      case AccordRole.supporting:
+        return Color(0xFF29B6F6);
+      case AccordRole.trace:
+        return Color(0xFF8D6E63);
+      default:
+        return _T.border;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: _color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: _color.withOpacity(0.35)),
+      ),
+      child: Text(
+        '${score.accord.icon} ${score.accord.name}',
+        style: TextStyle(color: _color, fontSize: 10),
+      ),
+    );
+  }
 }
 
 // Mini widgets used in classifyNote

@@ -59,11 +59,11 @@ List<double> moleFractionsAtTime({
 /// Returns list of C_i in mg/m³
 List<double> headspaceConcentration({
   required List<Compound> compounds,
-  required List<double> xt,         // mole fractions at time t
-  required List<double> gammas,     // UNIFAC activity coefficients
+  required List<double> xt, // mole fractions at time t
+  required List<double> gammas, // UNIFAC activity coefficients
 }) {
   final int n = compounds.length;
- 
+
   // Partial pressures (kPa)
   List<double> pp = List.filled(n, 0.0);
   for (int i = 0; i < n; i++) {
@@ -72,7 +72,7 @@ List<double> headspaceConcentration({
   }
   double Ptotal = pp.reduce((a, b) => a + b);
   if (Ptotal < 1e-12) Ptotal = 1e-12;
- 
+
   // C_i [mol/m³] = (y_i × P_total [Pa]) / (R × T)
   // P in kPa → ×1000 for Pa; MW in g/mol → ×1000 for mg/mol → mg/m³
   List<double> C = List.filled(n, 0.0);
@@ -84,17 +84,81 @@ List<double> headspaceConcentration({
   return C;
 }
 
+// ── IMPROVED: Activity-coefficient-aware evaporation ─────
+// k_i sekarang dimodulasi oleh γ_i(t) karena saat komposisi
+// berubah, activity coefficient berubah → driving force berubah
+//
+// Effective evaporation rate:
+//   k_eff_i(t) = α × γ_i(t) × Psat_i / √MW_i
+//
+// Diffusion resistance correction (stagnant film model):
+//   k_diff_i = k_eff_i / (1 + δ × MW_i^0.33)
+// di mana δ adalah diffusion damping factor
+
+double evaporationConstantCorrected({
+  required Compound c,
+  required double activityCoefficient,
+  double alpha = 0.0012,
+  double diffusionDamping = 0.002,
+}) {
+  if (c.Psat <= 0) return 1e-6;
+  // Activity-coefficient correction
+  final double kEff = alpha * activityCoefficient * c.Psat / sqrt(c.MW);
+  // Diffusion resistance: heavier molecules diffuse slower
+  final double diffFactor = 1.0 / (1.0 + diffusionDamping * pow(c.MW, 0.33));
+  final double k = kEff * diffFactor;
+  return (k.isFinite && k > 0) ? k : alpha * c.Psat / sqrt(c.MW);
+}
+
+// Solvent retention effect:
+// Ethanol memperlambat evaporasi senyawa polar melalui
+// kompetisi untuk vapor phase
+// Efek ini dimodelkan sebagai faktor multiplicative pada k_i
+double solventRetentionFactor({
+  required Compound c,
+  required double ethanolFraction,
+  required double waterFraction,
+}) {
+  // Polar compounds (OH, ACOH, COO) lebih tahan dalam
+  // campuran ethanol-water
+  final double polarity = _groupPolarityScore(c);
+  // Retention lebih kuat di kondisi basah (water)
+  final double retentionStrength =
+      ethanolFraction * 0.3 * polarity + waterFraction * 0.5 * polarity;
+  return (1.0 - retentionStrength.clamp(0.0, 0.7));
+}
+
+double _groupPolarityScore(Compound c) {
+  const Map<String, double> polarity = {
+    'OH': 1.0,
+    'ACOH': 0.9,
+    'COOH': 1.0,
+    'CH3CO': 0.4,
+    'CHO': 0.5,
+    'COO': 0.35,
+    'CH3COO': 0.3,
+    'CH2O': 0.4,
+    'H2O': 1.0,
+  };
+  double score = 0.0, total = 0.0;
+  c.groups.forEach((g, n) {
+    score += (polarity[g] ?? 0.05) * n;
+    total += n;
+  });
+  return total > 0 ? (score / total).clamp(0.0, 1.0) : 0.05;
+}
+
 // ── Full evaporation trajectory ────────────────────────────
 /// Returns one EvaporationPoint per time-step.
 /// gammaFn: a callback that computes UNIFAC gammas for a given
 ///          mole-fraction vector (reuse your existing UNIFAC logic).
 class EvaporationPoint {
-  final double time;                  // hours
-  final List<double> moleFractions;  // normalised, per compound
-  final List<double> headspaceConc;  // mg/m³, per compound
-  final List<double> odorValues;     // dimensionless OV
-  final List<String> noteLabels;     // dynamic note classification
- 
+  final double time; // hours
+  final List<double> moleFractions; // normalised, per compound
+  final List<double> headspaceConc; // mg/m³, per compound
+  final List<double> odorValues; // dimensionless OV
+  final List<String> noteLabels; // dynamic note classification
+
   EvaporationPoint({
     required this.time,
     required this.moleFractions,
@@ -112,7 +176,7 @@ List<EvaporationPoint> computeEvaporationTrajectory({
 }) {
   final List<double> ts = timePoints ?? defaultTimePoints();
   final int n = compounds.length;
- 
+
   return ts.map((t) {
     final List<double> xt = moleFractionsAtTime(
       compounds: compounds,
@@ -125,7 +189,7 @@ List<EvaporationPoint> computeEvaporationTrajectory({
       xt: xt,
       gammas: gammas,
     );
- 
+
     // Odor value from headspace: OV_i = C_i / (Thr_i × 1e6)
     // Thr in μg/L = mg/m³  → direct ratio
     List<double> ov = List.filled(n, 0.0);
@@ -135,12 +199,13 @@ List<EvaporationPoint> computeEvaporationTrajectory({
       ov[i] = C[i] / thr;
       if (ov[i].isNaN || ov[i].isInfinite) ov[i] = 0.0;
     }
- 
+
     // Dynamic note classification via ROI (Phase 3)
-    final List<String> notes = compounds.map((c) {
-      return _dynamicNoteLabel(c, t);
-    }).toList();
- 
+    final List<String> notes =
+        compounds.map((c) {
+          return _dynamicNoteLabel(c, t);
+        }).toList();
+
     return EvaporationPoint(
       time: t,
       moleFractions: xt,
@@ -158,7 +223,7 @@ String _dynamicNoteLabel(Compound c, double t) {
   final double k = evaporationConstant(c);
   // Residual fraction at time t
   final double residual = exp(-k * t);
- 
+
   if (residual < 0.05) return 'Dry-down / Dry';
   if (c.Psat >= 5.0) return 'Top';
   if (c.Psat >= 0.5) return t < 1.0 ? 'Top-Mid' : 'Heart';
