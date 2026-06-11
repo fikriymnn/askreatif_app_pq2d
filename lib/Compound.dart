@@ -297,6 +297,20 @@ final List<Compound> compounds = [
     Thr: 1.67e-7,
     groups: {"CH3": 4, "CH2": 5, "CH": 3, "C": 3, "CH3COO": 1},
   ),
+  Compound(
+    name: "Lily Aldehyde",
+    MW: 204.31,
+    Psat: 0.67,
+    Thr: 2.7e-4,
+    groups: {"CH3": 4, "CH2": 1, "CH": 1, "C": 1, "ACH": 4, "AC": 2, "CHO": 1},
+  ),
+  Compound(
+    name: "Alpha Hexyl Cinnamaldehyde",
+    MW: 196.2,
+    Psat: 38.5e-1,
+    Thr: 5e-2,
+    groups: {"CH3": 1, "CH2": 5, "CHO": 1, "CH=C": 1, "AC": 1, "ACH": 5},
+  ),
   Compound(name: "Water", MW: 18.15, Psat: 0.317, Thr: 10, groups: {"H2O": 1}),
   Compound(
     name: "Ethanol",

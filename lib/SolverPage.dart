@@ -598,7 +598,6 @@ class _SolverPageState extends State<SolverPage> with TickerProviderStateMixin {
     _lastOV = ov;
     List<ClimatePerformanceReport> climateReports =
         presetClimates
-            .take(3) // European, Tropical, Nordic
             .map(
               (climate) => evaluateClimatePerformance(
                 fragranceComps: selectedList,

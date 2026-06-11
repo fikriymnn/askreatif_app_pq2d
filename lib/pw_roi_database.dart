@@ -193,6 +193,14 @@ const List<PwRoiEntry> pwRoiDatabase = [
     abcLabel: 'J-Jasmine — Methyl dihydrojasmonate',
     source: 'PW',
   ),
+  PwRoiEntry(
+    name: 'Alpha Hexyl Cinnamaldehyde',
+    relativeImpact: 100.0,
+    odourLifeHours: 460.0,
+    abcClass: 'J',
+    abcLabel: 'J-Jasmine — Methyl dihydrojasmonate',
+    source: 'PW',
+  ),
 
   // ── V — VANILLA ──────────────────────────────────────────
   PwRoiEntry(
@@ -356,6 +364,16 @@ const List<PwRoiEntry> pwRoiDatabase = [
     abcClass: 'X',
     abcLabel: 'X-Musk Sexy, Musk, Sensual Skin-like',
     source: 'EST',
+  ),
+
+  // ── M — MUGUET ─────────────────────────────────────────
+  PwRoiEntry(
+    name: 'Lily Aldehyde',
+    relativeImpact: 80.0, // Moderate impact; floral green
+    odourLifeHours: 72.0,
+    abcClass: 'M',
+    abcLabel: 'M-Muguet — Lily / floral green',
+    source: 'PW',
   ),
 
   // ── N — NARCOTIC ─────────────────────────────────────────
